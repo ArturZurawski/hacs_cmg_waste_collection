@@ -1,0 +1,102 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Community Selection",
+        "description": "Enter Community ID (default: 108 for Gdańsk region)",
+        "data": {
+          "community_id": "Community ID"
+        }
+      },
+      "town": {
+        "title": "Select Town",
+        "description": "Choose your town/city",
+        "data": {
+          "town": "Town"
+        }
+      },
+      "period": {
+        "title": "Select Schedule Period",
+        "description": "Choose the schedule period (usually current year)",
+        "data": {
+          "period": "Period"
+        }
+      },
+      "street": {
+        "title": "Select Street",
+        "description": "Choose your street",
+        "data": {
+          "street": "Street"
+        }
+      },
+      "number": {
+        "title": "Building Number",
+        "description": "Enter your building number",
+        "data": {
+          "number": "Number"
+        }
+      },
+      "group": {
+        "title": "Select Building Type",
+        "description": "Choose your building type/group",
+        "data": {
+          "group": "Building Type"
+        }
+      },
+      "waste_types": {
+        "title": "Select Waste Types",
+        "description": "Select waste types for aggregate sensors (individual sensors will be created for all types)",
+        "data": {
+          "selected_waste_types": "Waste Types for Aggregate Sensors"
+        }
+      }
+    },
+    "error": {
+      "no_towns_found": "No towns found for this community",
+      "no_periods_found": "No schedule periods found",
+      "no_streets_found": "No streets found",
+      "no_groups_found": "No building groups found",
+      "no_waste_types_found": "No waste types found",
+      "api_error": "Error communicating with API",
+      "unknown": "Unexpected error occurred"
+    },
+    "abort": {
+      "already_configured": "This location is already configured"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Waste Collection Options",
+        "description": "Select which waste types to include in aggregate sensors",
+        "data": {
+          "selected_waste_types": "Waste Types for Aggregate Sensors"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "today_collection": {
+        "name": "Today collection"
+      },
+      "tomorrow_collection": {
+        "name": "Tomorrow collection"
+      },
+      "next_collection": {
+        "name": "Next collection"
+      },
+      "schedule_last_change": {
+        "name": "Schedule last change"
+      },
+      "last_update": {
+        "name": "Last update"
+      }
+    },
+    "button": {
+      "refresh_schedule": {
+        "name": "Refresh schedule"
+      }
+    }
+  }
+}

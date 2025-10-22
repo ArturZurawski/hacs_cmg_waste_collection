@@ -1,0 +1,10 @@
+{
+  "name": "Czyste Miasto Gdańsk Waste Collection",
+  "content_in_root": false,
+  "filename": "cmg_waste_collection",
+  "homeassistant": "2024.1.0",
+  "render_readme": true,
+  "domains": ["sensor", "button"],
+  "iot_class": "Cloud Polling",
+  "version": "1.0.0"
+}

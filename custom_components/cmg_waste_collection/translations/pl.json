@@ -1,0 +1,102 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Wybór gminy",
+        "description": "Wprowadź ID gminy (domyślnie: 108 dla regionu Gdańsk)",
+        "data": {
+          "community_id": "ID gminy"
+        }
+      },
+      "town": {
+        "title": "Wybór miasta",
+        "description": "Wybierz swoje miasto",
+        "data": {
+          "town": "Miasto"
+        }
+      },
+      "period": {
+        "title": "Wybór okresu harmonogramu",
+        "description": "Wybierz okres harmonogramu (zazwyczaj bieżący rok)",
+        "data": {
+          "period": "Okres"
+        }
+      },
+      "street": {
+        "title": "Wybór ulicy",
+        "description": "Wybierz swoją ulicę",
+        "data": {
+          "street": "Ulica"
+        }
+      },
+      "number": {
+        "title": "Numer budynku",
+        "description": "Wprowadź numer budynku",
+        "data": {
+          "number": "Numer"
+        }
+      },
+      "group": {
+        "title": "Wybór typu zabudowy",
+        "description": "Wybierz typ zabudowy",
+        "data": {
+          "group": "Typ zabudowy"
+        }
+      },
+      "waste_types": {
+        "title": "Wybór typów odpadów",
+        "description": "Wybierz typy odpadów dla sensorów zbiorczych (sensory dla poszczególnych typów zostaną utworzone dla wszystkich)",
+        "data": {
+          "selected_waste_types": "Typy odpadów dla sensorów zbiorczych"
+        }
+      }
+    },
+    "error": {
+      "no_towns_found": "Nie znaleziono miast dla tej gminy",
+      "no_periods_found": "Nie znaleziono okresów harmonogramu",
+      "no_streets_found": "Nie znaleziono ulic",
+      "no_groups_found": "Nie znaleziono grup budynków",
+      "no_waste_types_found": "Nie znaleziono typów odpadów",
+      "api_error": "Błąd komunikacji z API",
+      "unknown": "Wystąpił nieoczekiwany błąd"
+    },
+    "abort": {
+      "already_configured": "Ta lokalizacja jest już skonfigurowana"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Opcje odbioru śmieci",
+        "description": "Wybierz które typy odpadów uwzględnić w sensorach zbiorczych",
+        "data": {
+          "selected_waste_types": "Typy odpadów dla sensorów zbiorczych"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "today_collection": {
+        "name": "Odbiór dzisiaj"
+      },
+      "tomorrow_collection": {
+        "name": "Odbiór jutro"
+      },
+      "next_collection": {
+        "name": "Następny odbiór"
+      },
+      "schedule_last_change": {
+        "name": "Ostatnia zmiana harmonogramu"
+      },
+      "last_update": {
+        "name": "Ostatnia aktualizacja"
+      }
+    },
+    "button": {
+      "refresh_schedule": {
+        "name": "Odśwież harmonogram"
+      }
+    }
+  }
+}
