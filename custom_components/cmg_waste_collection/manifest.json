@@ -1,6 +1,6 @@
 {
   "domain": "cmg_waste_collection",
-  "name": "Czyste Miasto Gdańsk Waste Collection",
+  "name": "Czyste Miasto Gdansk Waste Collection",
   "codeowners": [],
   "config_flow": true,
   "dependencies": [],
