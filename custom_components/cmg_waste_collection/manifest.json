@@ -6,6 +6,8 @@
   "dependencies": [],
   "documentation": "https://github.com/ArturZurawski/hacs_cmg_waste_collection",
   "integration_type": "service",
+  "issue_tracker": "https://github.com/ArturZurawski/hacs_cmg_waste_collection/issues",
   "iot_class": "cloud_polling",
-  "requirements": ["requests>=2.31.0"]
+  "requirements": ["requests>=2.31.0"],
+  "version": "1.0.0"
 }
