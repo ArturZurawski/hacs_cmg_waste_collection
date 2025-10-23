@@ -66,17 +66,41 @@ class WasteCollectionAPI:
             data = resp.json()
 
             if data.get('success'):
-                periods = data['data']['schedulePeriods']
-                # Filter by current year
-                current_year = str(datetime.now().year)
-                return [
-                    p for p in periods
-                    if p['startDate'].startswith(current_year)
-                ]
+                return data['data']['schedulePeriods']
             return []
 
         except requests.RequestException as err:
             _LOGGER.error("Error fetching schedule periods: %s", err)
+            raise
+
+    def get_current_period(self, community_id: str) -> Optional[Dict[str, Any]]:
+        """Get the current schedule period that contains today's date."""
+        try:
+            periods = self.get_schedule_periods(community_id)
+            today = datetime.now().date()
+
+            # Find period that contains today's date
+            for period in periods:
+                start = datetime.strptime(period['startDate'], '%Y-%m-%d').date()
+                end = datetime.strptime(period['endDate'], '%Y-%m-%d').date()
+                
+                if start <= today <= end:
+                    return period
+
+            # If no period contains today, return the most recent one
+            if periods:
+                # Sort by start date descending
+                sorted_periods = sorted(
+                    periods,
+                    key=lambda p: datetime.strptime(p['startDate'], '%Y-%m-%d'),
+                    reverse=True
+                )
+                return sorted_periods[0]
+
+            return None
+
+        except Exception as err:
+            _LOGGER.error("Error finding current period: %s", err)
             raise
 
     def get_streets(self, town_id: str, period_id: str) -> List[Dict[str, Any]]:

@@ -15,13 +15,6 @@
           "town": "Town"
         }
       },
-      "period": {
-        "title": "Select Schedule Period",
-        "description": "Choose the schedule period (usually current year)",
-        "data": {
-          "period": "Period"
-        }
-      },
       "street": {
         "title": "Select Street",
         "description": "Choose your street",

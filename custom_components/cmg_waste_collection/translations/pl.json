@@ -15,13 +15,6 @@
           "town": "Miasto"
         }
       },
-      "period": {
-        "title": "Wybór okresu harmonogramu",
-        "description": "Wybierz okres harmonogramu (zazwyczaj bieżący rok)",
-        "data": {
-          "period": "Okres"
-        }
-      },
       "street": {
         "title": "Wybór ulicy",
         "description": "Wybierz swoją ulicę",

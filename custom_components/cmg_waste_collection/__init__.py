@@ -10,6 +10,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 
 from .api import WasteCollectionAPI
 from .const import (
+    CONF_COMMUNITY_ID,
     CONF_NUMBER,
     CONF_PERIOD_ID,
     CONF_STREET_ID,
@@ -37,7 +38,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     # Get configuration
     town_id = entry.data[CONF_TOWN_ID]
-    period_id = entry.data[CONF_PERIOD_ID]
+    community_id = entry.data[CONF_COMMUNITY_ID]
     street_name = entry.data[CONF_STREET_NAME]
     street_id = entry.data[CONF_STREET_ID]
     number = entry.data[CONF_NUMBER]
@@ -49,6 +50,27 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     async def async_update_data():
         """Fetch data from API."""
         try:
+            # Always get current period to ensure we use the latest one
+            current_period = await hass.async_add_executor_job(
+                api.get_current_period,
+                community_id
+            )
+            
+            if not current_period:
+                raise UpdateFailed("No active schedule period found")
+            
+            period_id = current_period['id']
+            
+            # Log if period changed
+            if period_id != entry.data.get(CONF_PERIOD_ID):
+                _LOGGER.info(
+                    "Schedule period changed from %s to %s (%s - %s)",
+                    entry.data.get(CONF_PERIOD_ID),
+                    period_id,
+                    current_period['startDate'],
+                    current_period['endDate']
+                )
+            
             return await hass.async_add_executor_job(
                 api.update,
                 number,

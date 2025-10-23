@@ -34,8 +34,15 @@ waste_collection/
                   │
                   ▼
 ┌─────────────────────────────────────────────────────────────┐
+│ WasteCollectionAPI.get_current_period()                     │
+│   • Automatically selects period containing today's date    │
+│   • Ensures latest period is always used                    │
+└─────────────────┬───────────────────────────────────────────┘
+                  │
+                  ▼
+┌─────────────────────────────────────────────────────────────┐
 │ WasteCollectionAPI.update()                                 │
-│   • POST /v1/schedules                                      │
+│   • POST /v1/schedules (with current period_id)             │
 │   • Parse response                                          │
 │   • Filter by selected waste types                          │
 │   • Return (schedule_dict, descriptions_dict)               │
@@ -136,6 +143,8 @@ curl -X GET 'https://pluginecoapi.ecoharmonogram.pl/v1/schedulePeriodsWithDataFo
   }
 }
 ```
+
+**Note:** The integration automatically selects the period that contains today's date. If no period contains today, it uses the most recent one. This ensures seamless transition to new schedule periods (e.g., when a new year starts).
 
 ### 3. Get Streets for Town
 
@@ -251,7 +260,7 @@ Configuration is stored in Home Assistant's config entry with these keys:
 CONF_COMMUNITY_ID = "community_id"          # "108"
 CONF_TOWN_ID = "town_id"                    # "2149"
 CONF_TOWN_NAME = "town_name"                # "Gdańsk"
-CONF_PERIOD_ID = "period_id"                # "8814"
+CONF_PERIOD_ID = "period_id"                # "8814" (saved during config, but auto-updated on each refresh)
 CONF_PERIOD_START = "period_start"          # "2025-01-01"
 CONF_PERIOD_END = "period_end"              # "2025-12-31"
 CONF_PERIOD_CHANGE_DATE = "period_change_date"  # "2024-12-15"
@@ -261,7 +270,10 @@ CONF_NUMBER = "number"                      # "6"
 CONF_STREET_ID = "street_id"                # "23868396"
 CONF_GROUP_NAME = "group_name"              # "Zabudowa jednorodzinna"
 CONF_SELECTED_WASTE_TYPES = "selected_waste_types"  # ["85873", "85874"]
+CONF_EVENT_TIME = "event_time"              # "6" (hour) or "all_day"
 ```
+
+**Important:** The `CONF_PERIOD_ID` is saved during initial configuration, but the integration **automatically fetches and uses the current period** on each data update. This ensures that when a new schedule period is published (e.g., for the next year), the integration seamlessly transitions to using it without requiring reconfiguration.
 
 ## Update Schedule
 
@@ -269,6 +281,11 @@ Data is updated:
 1. **Daily at 00:01** - Scheduled via `async_track_time_change` in `__init__.py`
 2. **On Home Assistant restart** - Via `async_config_entry_first_refresh`
 3. **Manual refresh** - Via refresh button triggering `coordinator.async_request_refresh()`
+
+**Automatic Period Selection:** On each update, the integration automatically queries the API for the current schedule period that contains today's date. This means:
+- When a new year's schedule is published, the integration automatically switches to it
+- No manual reconfiguration needed when schedule periods change
+- The integration logs when a period change is detected
 
 ## Data Structure
 

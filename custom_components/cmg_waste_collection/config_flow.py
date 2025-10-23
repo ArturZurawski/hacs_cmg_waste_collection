@@ -73,7 +73,48 @@ class WasteCollectionConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             town_data = user_input["town"].split("|")
             self.data[CONF_TOWN_ID] = town_data[0]
             self.data[CONF_TOWN_NAME] = town_data[1] if len(town_data) > 1 else town_data[0]
-            return await self.async_step_period()
+            
+            # Automatically get current period
+            try:
+                period = await self.hass.async_add_executor_job(
+                    self.api.get_current_period, self.data[CONF_COMMUNITY_ID]
+                )
+                
+                if not period:
+                    errors["base"] = "no_periods_found"
+                    return self.async_show_form(
+                        step_id="town",
+                        data_schema=vol.Schema({
+                            vol.Required("town"): str,
+                        }),
+                        errors=errors,
+                    )
+                
+                # Save period data
+                self.data[CONF_PERIOD_ID] = period['id']
+                self.data[CONF_PERIOD_START] = period['startDate']
+                self.data[CONF_PERIOD_END] = period['endDate']
+                self.data[CONF_PERIOD_CHANGE_DATE] = period['changeDate']
+                
+                _LOGGER.info(
+                    "Auto-selected period %s (%s - %s)",
+                    period['id'],
+                    period['startDate'],
+                    period['endDate']
+                )
+                
+            except Exception as err:
+                _LOGGER.error("Error fetching current period: %s", err)
+                errors["base"] = "api_error"
+                return self.async_show_form(
+                    step_id="town",
+                    data_schema=vol.Schema({
+                        vol.Required("town"): str,
+                    }),
+                    errors=errors,
+                )
+            
+            return await self.async_step_street()
 
         try:
             towns = await self.hass.async_add_executor_job(
@@ -104,50 +145,6 @@ class WasteCollectionConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             errors["base"] = "api_error"
             return await self.async_step_user()
 
-    async def async_step_period(
-        self, user_input: Optional[Dict[str, Any]] = None
-    ) -> FlowResult:
-        """Handle schedule period selection."""
-        errors = {}
-
-        if user_input is not None:
-            period_parts = user_input["period"].split("|")
-            self.data[CONF_PERIOD_ID] = period_parts[0]
-            self.data[CONF_PERIOD_START] = period_parts[1]
-            self.data[CONF_PERIOD_END] = period_parts[2]
-            self.data[CONF_PERIOD_CHANGE_DATE] = period_parts[3]
-            return await self.async_step_street()
-
-        try:
-            periods = await self.hass.async_add_executor_job(
-                self.api.get_schedule_periods, self.data[CONF_COMMUNITY_ID]
-            )
-
-            if not periods:
-                errors["base"] = "no_periods_found"
-                return await self.async_step_town()
-
-            period_options = {
-                f"{p['id']}|{p['startDate']}|{p['endDate']}|{p['changeDate']}":
-                f"{p['startDate']} - {p['endDate']}"
-                for p in periods
-            }
-
-            data_schema = vol.Schema({
-                vol.Required("period"): vol.In(period_options),
-            })
-
-            return self.async_show_form(
-                step_id="period",
-                data_schema=data_schema,
-                errors=errors,
-            )
-
-        except Exception as err:
-            _LOGGER.error("Error fetching periods: %s", err)
-            errors["base"] = "api_error"
-            return await self.async_step_town()
-
     async def async_step_street(
         self, user_input: Optional[Dict[str, Any]] = None
     ) -> FlowResult:
@@ -169,7 +166,7 @@ class WasteCollectionConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
             if not streets:
                 errors["base"] = "no_streets_found"
-                return await self.async_step_period()
+                return await self.async_step_town()
 
             street_options = {
                 f"{s['name']}|{s['choosedStreetIds']}": s['name']
@@ -189,7 +186,7 @@ class WasteCollectionConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         except Exception as err:
             _LOGGER.error("Error fetching streets: %s", err)
             errors["base"] = "api_error"
-            return await self.async_step_period()
+            return await self.async_step_town()
 
     async def async_step_number(
         self, user_input: Optional[Dict[str, Any]] = None
