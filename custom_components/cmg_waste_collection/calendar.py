@@ -8,7 +8,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity, DataUpdateCoordinator
-from homeassistant.helpers.entity import DeviceInfo
+from homeassistant.helpers.entity import DeviceInfo, EntityCategory
 from homeassistant.util import dt as dt_util
 
 from .const import (
@@ -96,10 +96,12 @@ class WasteCollectionCalendar(CoordinatorEntity, CalendarEntity):
         """Initialize the calendar."""
         super().__init__(coordinator)
         self._config_entry = config_entry
-        self._attr_name = "Waste Collection"
+        self._attr_name = "CMG Waste Collection"
         self._attr_unique_id = f"{config_entry.entry_id}_calendar"
-        self._attr_has_entity_name = True
+        self._attr_has_entity_name = False
         self._attr_device_info = get_device_info(config_entry)
+        self._attr_icon = "mdi:trash-can"
+        self._attr_entity_category = EntityCategory.DIAGNOSTIC
         self._event = None
 
     def _get_event_time_setting(self) -> str:
@@ -168,7 +170,7 @@ class WasteCollectionCalendar(CoordinatorEntity, CalendarEntity):
                 datetime.min.time().replace(hour=hour)
             )
             event_datetime = dt_util.as_local(event_datetime)
-            
+
             return CalendarEvent(
                 start=event_datetime,
                 end=event_datetime + timedelta(hours=1),
@@ -206,7 +208,7 @@ class WasteCollectionCalendar(CoordinatorEntity, CalendarEntity):
             for collection_date in dates:
                 # Check if date is within requested range
                 if start_date.date() <= collection_date.date() <= end_date.date():
-                    
+
                     if event_time == "all_day":
                         # All-day event
                         event_date = collection_date.date()
@@ -226,7 +228,7 @@ class WasteCollectionCalendar(CoordinatorEntity, CalendarEntity):
                             datetime.min.time().replace(hour=hour)
                         )
                         event_datetime = dt_util.as_local(event_datetime)
-                        
+
                         events.append(
                             CalendarEvent(
                                 start=event_datetime,
