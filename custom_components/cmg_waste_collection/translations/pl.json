@@ -40,7 +40,8 @@
         "title": "Wybór typów odpadów",
         "description": "Wybierz typy odpadów dla sensorów zbiorczych (sensory dla poszczególnych typów zostaną utworzone dla wszystkich)",
         "data": {
-          "selected_waste_types": "Typy odpadów dla sensorów zbiorczych"
+          "selected_waste_types": "Typy odpadów dla sensorów zbiorczych",
+          "event_time": "Czas eventu w kalendarzu"
         }
       }
     },

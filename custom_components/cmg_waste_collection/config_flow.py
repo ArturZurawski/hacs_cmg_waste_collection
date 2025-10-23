@@ -265,6 +265,11 @@ class WasteCollectionConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             self.data[CONF_SELECTED_WASTE_TYPES] = user_input.get(
                 CONF_SELECTED_WASTE_TYPES, []
             )
+            
+            # Save event time setting
+            self.data[CONF_EVENT_TIME] = user_input.get(
+                CONF_EVENT_TIME, DEFAULT_EVENT_TIME
+            )
 
             # Create entry directly
             await self.async_set_unique_id(
@@ -298,11 +303,44 @@ class WasteCollectionConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 for desc in descriptions
             }
 
+            # Time options for calendar events
+            time_options = {
+                "all_day": "All day event",
+                "0": "12:00 AM (midnight)",
+                "1": "1:00 AM",
+                "2": "2:00 AM",
+                "3": "3:00 AM",
+                "4": "4:00 AM",
+                "5": "5:00 AM",
+                "6": "6:00 AM",
+                "7": "7:00 AM",
+                "8": "8:00 AM",
+                "9": "9:00 AM",
+                "10": "10:00 AM",
+                "11": "11:00 AM",
+                "12": "12:00 PM (noon)",
+                "13": "1:00 PM",
+                "14": "2:00 PM",
+                "15": "3:00 PM",
+                "16": "4:00 PM",
+                "17": "5:00 PM",
+                "18": "6:00 PM",
+                "19": "7:00 PM",
+                "20": "8:00 PM",
+                "21": "9:00 PM",
+                "22": "10:00 PM",
+                "23": "11:00 PM",
+            }
+
             data_schema = vol.Schema({
                 vol.Optional(
                     CONF_SELECTED_WASTE_TYPES,
                     default=list(waste_type_options.keys())
                 ): cv.multi_select(waste_type_options),
+                vol.Optional(
+                    CONF_EVENT_TIME,
+                    default=DEFAULT_EVENT_TIME
+                ): vol.In(time_options),
             })
 
             return self.async_show_form(
@@ -310,7 +348,7 @@ class WasteCollectionConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 data_schema=data_schema,
                 errors=errors,
                 description_placeholders={
-                    "info": "Select waste types for aggregate sensors"
+                    "info": "Select waste types for aggregate sensors and calendar event time"
                 }
             )
 
@@ -368,7 +406,7 @@ class WasteCollectionOptionsFlow(config_entries.OptionsFlow):
 
             current_event_time = self.config_entry.options.get(
                 CONF_EVENT_TIME,
-                DEFAULT_EVENT_TIME
+                self.config_entry.data.get(CONF_EVENT_TIME, DEFAULT_EVENT_TIME)
             )
 
             # Time options for calendar events

@@ -103,10 +103,13 @@ class WasteCollectionCalendar(CoordinatorEntity, CalendarEntity):
         self._event = None
 
     def _get_event_time_setting(self) -> str:
-        """Get the event time setting from options or default."""
+        """Get the event time setting from options or config data or default."""
+        # First check options (can be changed after initial config)
+        # Then check config data (set during initial config)
+        # Finally use default
         return self._config_entry.options.get(
             CONF_EVENT_TIME,
-            DEFAULT_EVENT_TIME
+            self._config_entry.data.get(CONF_EVENT_TIME, DEFAULT_EVENT_TIME)
         )
 
     @property

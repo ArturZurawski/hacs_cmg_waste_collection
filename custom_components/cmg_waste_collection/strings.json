@@ -40,7 +40,8 @@
         "title": "Select Waste Types",
         "description": "Select waste types for aggregate sensors (individual sensors will be created for all types)",
         "data": {
-          "selected_waste_types": "Waste Types for Aggregate Sensors"
+          "selected_waste_types": "Waste Types for Aggregate Sensors",
+          "event_time": "Calendar event time"
         }
       }
     },
