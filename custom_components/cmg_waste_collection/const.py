@@ -19,9 +19,11 @@ CONF_NUMBER = "number"
 CONF_STREET_ID = "street_id"
 CONF_GROUP_NAME = "group_name"
 CONF_SELECTED_WASTE_TYPES = "selected_waste_types"
+CONF_EVENT_TIME = "event_time"
 
 # Defaults
 DEFAULT_COMMUNITY_ID = "108"
+DEFAULT_EVENT_TIME = "6"  # Default to 6:00 AM
 
 # Sensor attributes
 ATTR_NEXT_DATE = "next_date"

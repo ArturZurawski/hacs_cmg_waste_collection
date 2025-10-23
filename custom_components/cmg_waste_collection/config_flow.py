@@ -12,6 +12,7 @@ import homeassistant.helpers.config_validation as cv
 from .api import WasteCollectionAPI
 from .const import (
     CONF_COMMUNITY_ID,
+    CONF_EVENT_TIME,
     CONF_GROUP_NAME,
     CONF_NUMBER,
     CONF_PERIOD_CHANGE_DATE,
@@ -25,6 +26,7 @@ from .const import (
     CONF_TOWN_ID,
     CONF_TOWN_NAME,
     DEFAULT_COMMUNITY_ID,
+    DEFAULT_EVENT_TIME,
     DOMAIN,
 )
 
@@ -367,6 +369,40 @@ class WasteCollectionOptionsFlow(config_entries.OptionsFlow):
                 self.config_entry.data.get(CONF_SELECTED_WASTE_TYPES, list(waste_type_options.keys()))
             )
 
+            current_event_time = self.config_entry.options.get(
+                CONF_EVENT_TIME,
+                DEFAULT_EVENT_TIME
+            )
+
+            # Time options for calendar events
+            time_options = {
+                "all_day": "All day event",
+                "0": "12:00 AM (midnight)",
+                "1": "1:00 AM",
+                "2": "2:00 AM",
+                "3": "3:00 AM",
+                "4": "4:00 AM",
+                "5": "5:00 AM",
+                "6": "6:00 AM",
+                "7": "7:00 AM",
+                "8": "8:00 AM",
+                "9": "9:00 AM",
+                "10": "10:00 AM",
+                "11": "11:00 AM",
+                "12": "12:00 PM (noon)",
+                "13": "1:00 PM",
+                "14": "2:00 PM",
+                "15": "3:00 PM",
+                "16": "4:00 PM",
+                "17": "5:00 PM",
+                "18": "6:00 PM",
+                "19": "7:00 PM",
+                "20": "8:00 PM",
+                "21": "9:00 PM",
+                "22": "10:00 PM",
+                "23": "11:00 PM",
+            }
+
             return self.async_show_form(
                 step_id="init",
                 data_schema=vol.Schema({
@@ -374,6 +410,10 @@ class WasteCollectionOptionsFlow(config_entries.OptionsFlow):
                         CONF_SELECTED_WASTE_TYPES,
                         default=current_selection
                     ): cv.multi_select(waste_type_options),
+                    vol.Optional(
+                        CONF_EVENT_TIME,
+                        default=current_event_time
+                    ): vol.In(time_options),
                 }),
                 errors=errors,
                 description_placeholders={

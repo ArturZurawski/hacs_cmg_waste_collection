@@ -20,7 +20,7 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS = [Platform.SENSOR, Platform.BUTTON]
+PLATFORMS = [Platform.SENSOR, Platform.BUTTON, Platform.CALENDAR]
 
 # This integration is only configured through config entries
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)

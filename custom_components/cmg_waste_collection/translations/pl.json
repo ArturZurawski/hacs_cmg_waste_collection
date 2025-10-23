@@ -67,10 +67,11 @@
   "options": {
     "step": {
       "init": {
-        "title": "Opcje odbioru śmieci",
+        "title": "Opcje odbioru odpadów",
         "description": "Wybierz które typy odpadów uwzględnić w sensorach zbiorczych",
         "data": {
-          "selected_waste_types": "Typy odpadów dla sensorów zbiorczych"
+          "selected_waste_types": "Typy odpadów dla sensorów zbiorczych",
+          "event_time": "Czas eventu w kalendarzu"
         }
       }
     }
@@ -96,6 +97,11 @@
     "button": {
       "refresh_schedule": {
         "name": "Odśwież harmonogram"
+      }
+    },
+    "calendar": {
+      "waste_collection": {
+        "name": "Odbiór odpadów"
       }
     }
   }

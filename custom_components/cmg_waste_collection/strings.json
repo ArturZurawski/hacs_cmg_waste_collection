@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Community Selection",
-        "description": "Enter Community ID (default: 108 for Gdańsk region)",
+        "description": "Enter Community ID (default: 108 for Gdansk region)",
         "data": {
           "community_id": "Community ID"
         }
@@ -70,7 +70,8 @@
         "title": "Waste Collection Options",
         "description": "Select which waste types to include in aggregate sensors",
         "data": {
-          "selected_waste_types": "Waste Types for Aggregate Sensors"
+          "selected_waste_types": "Waste Types for Aggregate Sensors",
+          "event_time": "Calendar event time"
         }
       }
     }
@@ -96,6 +97,11 @@
     "button": {
       "refresh_schedule": {
         "name": "Refresh schedule"
+      }
+    },
+    "calendar": {
+      "waste_collection": {
+        "name": "Waste Collection"
       }
     }
   }
