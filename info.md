@@ -16,7 +16,7 @@ Home Assistant integration for waste collection schedules in Gdańsk from Czyste
 **Manual installation (not yet in HACS store):**
 
 1. Open HACS → **Integrations** → **⋮** (top right) → **Custom repositories**
-2. Add repository URL: `https://github.com/ArturZurawski/hacs_cmg_waste_collection`
+2. Add repository URL: `https://github.com/ArturZurawski/cmg_waste_collection`
 3. Category: **Integration**
 4. Click **Add**
 5. Find **"Czyste Miasto Gdańsk"** in HACS and click **Download**
@@ -135,7 +135,7 @@ automation:
 
 ## 🔗 Links
 
-- [Documentation](https://github.com/ArturZurawski/hacs_cmg_waste_collection)
+- [Documentation](https://github.com/ArturZurawski/cmg_waste_collection)
 - [CMG Gdańsk](https://czystemiasto.gdansk.pl/)
 
 ## 📄 License
