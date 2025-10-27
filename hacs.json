@@ -1,4 +1,5 @@
 {
   "name": "Czyste Miasto Gdansk Waste Collection",
-  "content_in_root": false
+  "content_in_root": false,
+  "country": ["PL"]
 }
