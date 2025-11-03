@@ -1,6 +1,7 @@
 """Calendar platform for Waste Collection."""
 from datetime import date, datetime, timedelta
 import logging
+import unicodedata
 from typing import Optional
 
 from homeassistant.components.calendar import CalendarEntity, CalendarEvent
@@ -32,26 +33,91 @@ def capitalize_waste_name(name: str) -> str:
     return name[0].upper() + name[1:].lower() if len(name) > 1 else name.upper()
 
 
-def get_color_emoji(color: str) -> str:
-    """Get colored emoji square based on hex color."""
-    color = color.lower()
+def normalize_polish_text(text: str) -> str:
+    """Normalize Polish text - remove diacritics and convert to ASCII.
 
-    # Map CMG colors to emoji squares
-    color_map = {
-        "#ae6f46": "🟫",  # BIO - brown
-        "#9d9d9c": "⬛",  # RESZTKOWE - gray
-        "#303030": "⬛",  # RESZTKOWE alt - dark gray
-        "#009fe3": "🟦",  # PAPIER - blue
-        "#fed000": "🟨",  # METALE - yellow
-        "#ffff00": "🟨",  # METALE alt - yellow
-        "#3aaa35": "🟩",  # SZKŁO - green
-        "#d1d1d1": "⬜",  # WIELKOGABARYTY - light gray
-        "#c0c0c0": "⬜",  # WIELKOGABARYTY alt - light gray
-        "#e30000": "🟥",  # TERMINY PŁATNOŚCI - red
-        "#ff0000": "🟥",  # TERMINY PŁATNOŚCI alt - red
-    }
+    Handles Polish characters: ą, ć, ę, ł, ń, ó, ś, ź, ż
+    """
+    if not text:
+        return text
 
-    return color_map.get(color, "🔲")  # Default: gray square
+    # First handle ł/Ł manually as it's not a standard diacritic
+    text = text.replace('ł', 'l').replace('Ł', 'L')
+
+    # Use Unicode normalization to remove other diacritics
+    # NFD = Normalization Form Decomposed (separates base char from diacritic)
+    nfd = unicodedata.normalize('NFD', text)
+
+    # Filter out combining diacritical marks (category 'Mn')
+    return ''.join(char for char in nfd if unicodedata.category(char) != 'Mn')
+
+
+def get_color_emoji_from_hex(color: str) -> str:
+    """Map any HEX color to closest colored emoji square based on RGB analysis."""
+    if not color or not color.startswith('#'):
+        return "🔲"
+
+    try:
+        color = color.lstrip('#')
+        if len(color) != 6:
+            return "🔲"
+
+        r = int(color[0:2], 16)
+        g = int(color[2:4], 16)
+        b = int(color[4:6], 16)
+
+        # Find max/min components
+        max_val = max(r, g, b)
+        min_val = min(r, g, b)
+
+        # Black
+        if max_val < 50:
+            return "⬛"
+
+        # White
+        if min_val > 200:
+            return "⬜"
+
+        # Gray (low saturation)
+        if max_val - min_val < 40:
+            if max_val < 180:
+                return "⬛"
+            else:
+                return "⬜"
+
+        # Red
+        if r == max_val and r > 180 and r - g > 50 and r - b > 50:
+            return "🟥"
+
+        # Yellow (high R and G, low B)
+        if r > 200 and g > 150 and b < 100:
+            return "🟨"
+
+        # Orange (between red and yellow)
+        if r > 200 and g > 100 and g < 180 and b < 100:
+            return "🟧"
+
+        # Green
+        if g == max_val and g > 100 and g - r > 30 and g - b > 30:
+            return "🟩"
+
+        # Blue
+        if b == max_val and b > 100 and b - r > 30 and b - g > 30:
+            return "🟦"
+
+        # Purple (high R and B)
+        if r > 100 and b > 100 and abs(r - b) < 50 and g < max(r, b) - 30:
+            return "🟪"
+
+        # Brown (orange-ish but darker)
+        if r > 80 and g > 50 and b < 80 and r > g and g > b:
+            return "🟫"
+
+        # Default
+        return "🔲"
+
+    except (ValueError, IndexError):
+        return "🔲"
 
 
 async def async_setup_entry(
@@ -96,7 +162,7 @@ class WasteCollectionCalendar(CoordinatorEntity, CalendarEntity):
         """Initialize the calendar."""
         super().__init__(coordinator)
         self._config_entry = config_entry
-        self._attr_name = "CMG Waste Collection"
+        self._attr_name = "CMG Waste Collection"  # Proper capitalization
         self._attr_unique_id = f"{config_entry.entry_id}_calendar"
         self._attr_has_entity_name = False
         self._attr_device_info = get_device_info(config_entry)
@@ -114,6 +180,27 @@ class WasteCollectionCalendar(CoordinatorEntity, CalendarEntity):
             self._config_entry.data.get(CONF_EVENT_TIME, DEFAULT_EVENT_TIME)
         )
 
+    def _get_sensor_color(self, waste_type: str) -> str:
+        """Get color from sensor attribute for waste type."""
+        # Normalize waste_type for entity_id (remove polish characters, spaces to underscores, lowercase)
+        normalized = normalize_polish_text(waste_type.lower()).replace(' ', '_')
+
+        # Entity ID format: sensor.waste_collection_{waste_type}
+        entity_id = f"sensor.waste_collection_{normalized}"
+
+        # Try to get sensor state and color attribute
+        state = self.hass.states.get(entity_id)
+        if state and state.attributes.get('color'):
+            return state.attributes['color']
+
+        # Fallback to coordinator descriptions if sensor not found
+        if self.coordinator.data:
+            _, descriptions = self.coordinator.data
+            desc = descriptions.get(waste_type, {})
+            return desc.get('color', '#808080')
+
+        return '#808080'
+
     @property
     def event(self) -> Optional[CalendarEvent]:
         """Return the next upcoming event."""
@@ -127,13 +214,12 @@ class WasteCollectionCalendar(CoordinatorEntity, CalendarEntity):
         # Find next event
         next_events = []
         for waste_type, dates in schedule.items():
-            desc = descriptions.get(waste_type, {})
             for collection_date in dates:
                 if collection_date.date() >= today:
                     next_events.append({
                         'date': collection_date,
                         'waste_type': waste_type,
-                        'color': desc.get('color', '#808080'),
+                        'color': self._get_sensor_color(waste_type),
                     })
 
         if not next_events:
@@ -143,8 +229,8 @@ class WasteCollectionCalendar(CoordinatorEntity, CalendarEntity):
         next_events.sort(key=lambda x: x['date'])
         next_event = next_events[0]
 
-        # Get colored emoji
-        color_emoji = get_color_emoji(next_event['color'])
+        # Get colored emoji from sensor color attribute
+        color_emoji = get_color_emoji_from_hex(next_event['color'])
         waste_name = capitalize_waste_name(next_event['waste_type'])
 
         # Simple description: emoji + name
@@ -195,11 +281,11 @@ class WasteCollectionCalendar(CoordinatorEntity, CalendarEntity):
         event_time = self._get_event_time_setting()
 
         for waste_type, dates in schedule.items():
-            desc = descriptions.get(waste_type, {})
-            color = desc.get('color', '#808080')
+            # Get color from sensor attribute
+            color = self._get_sensor_color(waste_type)
 
-            # Get colored emoji
-            color_emoji = get_color_emoji(color)
+            # Get colored emoji from sensor color
+            color_emoji = get_color_emoji_from_hex(color)
             waste_name = capitalize_waste_name(waste_type)
 
             # Simple description: emoji + name

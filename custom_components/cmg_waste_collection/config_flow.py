@@ -12,6 +12,7 @@ import homeassistant.helpers.config_validation as cv
 from .api import WasteCollectionAPI
 from .const import (
     CONF_COMMUNITY_ID,
+    CONF_DEBUG_LOGGING,
     CONF_EVENT_TIME,
     CONF_GROUP_NAME,
     CONF_NUMBER,
@@ -73,13 +74,13 @@ class WasteCollectionConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             town_data = user_input["town"].split("|")
             self.data[CONF_TOWN_ID] = town_data[0]
             self.data[CONF_TOWN_NAME] = town_data[1] if len(town_data) > 1 else town_data[0]
-            
+
             # Automatically get current period
             try:
                 period = await self.hass.async_add_executor_job(
                     self.api.get_current_period, self.data[CONF_COMMUNITY_ID]
                 )
-                
+
                 if not period:
                     errors["base"] = "no_periods_found"
                     return self.async_show_form(
@@ -89,20 +90,20 @@ class WasteCollectionConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         }),
                         errors=errors,
                     )
-                
+
                 # Save period data
                 self.data[CONF_PERIOD_ID] = period['id']
                 self.data[CONF_PERIOD_START] = period['startDate']
                 self.data[CONF_PERIOD_END] = period['endDate']
                 self.data[CONF_PERIOD_CHANGE_DATE] = period['changeDate']
-                
+
                 _LOGGER.info(
                     "Auto-selected period %s (%s - %s)",
                     period['id'],
                     period['startDate'],
                     period['endDate']
                 )
-                
+
             except Exception as err:
                 _LOGGER.error("Error fetching current period: %s", err)
                 errors["base"] = "api_error"
@@ -113,7 +114,7 @@ class WasteCollectionConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     }),
                     errors=errors,
                 )
-            
+
             return await self.async_step_street()
 
         try:
@@ -265,7 +266,7 @@ class WasteCollectionConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             self.data[CONF_SELECTED_WASTE_TYPES] = user_input.get(
                 CONF_SELECTED_WASTE_TYPES, []
             )
-            
+
             # Save event time setting
             self.data[CONF_EVENT_TIME] = user_input.get(
                 CONF_EVENT_TIME, DEFAULT_EVENT_TIME
@@ -409,6 +410,11 @@ class WasteCollectionOptionsFlow(config_entries.OptionsFlow):
                 self.config_entry.data.get(CONF_EVENT_TIME, DEFAULT_EVENT_TIME)
             )
 
+            current_debug_logging = self.config_entry.options.get(
+                CONF_DEBUG_LOGGING,
+                self.config_entry.data.get(CONF_DEBUG_LOGGING, False)
+            )
+
             # Time options for calendar events
             time_options = {
                 "all_day": "All day event",
@@ -449,6 +455,10 @@ class WasteCollectionOptionsFlow(config_entries.OptionsFlow):
                         CONF_EVENT_TIME,
                         default=current_event_time
                     ): vol.In(time_options),
+                    vol.Optional(
+                        CONF_DEBUG_LOGGING,
+                        default=current_debug_logging
+                    ): bool,
                 }),
                 errors=errors,
                 description_placeholders={

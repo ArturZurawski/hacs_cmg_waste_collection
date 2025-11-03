@@ -83,7 +83,7 @@ class WasteCollectionAPI:
             for period in periods:
                 start = datetime.strptime(period['startDate'], '%Y-%m-%d').date()
                 end = datetime.strptime(period['endDate'], '%Y-%m-%d').date()
-                
+
                 if start <= today <= end:
                     return period
 
@@ -160,6 +160,9 @@ class WasteCollectionAPI:
     ) -> Dict[str, Any]:
         """Get waste types and schedule for location."""
         try:
+            _LOGGER.debug("API request: number=%s, street_id=%s, town_id=%s, street_name=%s, period_id=%s",
+                         number, street_id, town_id, street_name, period_id)
+
             resp = self._post_form(f"{BASE_URL}/schedules", {
                 'number': number,
                 'streetId': street_id,
@@ -170,6 +173,16 @@ class WasteCollectionAPI:
             })
             resp.raise_for_status()
             data = resp.json()
+
+            _LOGGER.debug("API response success: %s, data keys: %s",
+                         data.get('success'),
+                         list(data.get('data', {}).keys()) if data.get('data') else 'no data')
+
+            if data.get('data'):
+                schedules_count = len(data['data'].get('schedules', []))
+                descriptions_count = len(data['data'].get('scheduleDescription', []))
+                _LOGGER.debug("API returned: %d schedules, %d descriptions",
+                             schedules_count, descriptions_count)
 
             if data.get('success'):
                 return data['data']
@@ -297,16 +310,48 @@ class WasteCollectionAPI:
     ) -> tuple[Dict[str, List[datetime]], Dict[str, Dict[str, Any]]]:
         """Fetch and return updated schedule."""
         try:
-            _LOGGER.debug("Fetching schedule data")
+            _LOGGER.debug("Fetching schedule data for period_id=%s, street_id=%s, number=%s",
+                         period_id, street_id, number)
             raw_data = self.get_waste_types(
                 number, street_id, town_id, street_name, period_id
             )
-            return self.parse_schedule(raw_data, selected_type_ids)
+
+            if not raw_data:
+                _LOGGER.error("No data received from API")
+                raise Exception("Empty response from API")
+
+            _LOGGER.debug("Received raw data, parsing schedule")
+            result = self.parse_schedule(raw_data, selected_type_ids)
+
+            # Validate result
+            if not result or len(result) != 2:
+                _LOGGER.error("Invalid parse_schedule result: %s", result)
+                raise Exception("Invalid schedule data format")
+
+            schedule, descriptions = result
+
+            if not schedule or not descriptions:
+                _LOGGER.warning("Empty schedule or descriptions after parsing")
+
+                # If we have cached data, use it (new period may not have data yet)
+                if self._schedule_cache and self._descriptions_cache:
+                    _LOGGER.warning("New period has no data, using cached data from previous period (%d waste types)",
+                                  len(self._schedule_cache))
+                    return self._schedule_cache, self._descriptions_cache
+
+                # No cached data available
+                _LOGGER.error("No waste types found and no cached data available")
+                raise Exception("No waste types found in schedule")
+
+            _LOGGER.debug("Successfully parsed schedule: %d waste types", len(schedule))
+            return schedule, descriptions
 
         except Exception as err:
-            _LOGGER.error("Failed to update schedule: %s", err)
+            _LOGGER.error("Failed to update schedule: %s", err, exc_info=True)
             # Return cached data if available
             if self._schedule_cache and self._descriptions_cache:
-                _LOGGER.warning("Using cached schedule data")
+                _LOGGER.warning("API error, using cached schedule data (%d waste types)",
+                              len(self._schedule_cache))
                 return self._schedule_cache, self._descriptions_cache
+            _LOGGER.error("No cached data available, re-raising exception")
             raise

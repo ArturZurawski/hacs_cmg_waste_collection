@@ -17,7 +17,6 @@ from .const import (
     ATTR_COMMUNITY_ID,
     ATTR_COUNT,
     ATTR_DAYS_UNTIL,
-    ATTR_DESCRIPTION,
     ATTR_IS_TODAY,
     ATTR_IS_TOMORROW,
     ATTR_NEXT_DATE,
@@ -73,9 +72,12 @@ async def async_setup_entry(
 
     # Create sensor for each waste type
     for waste_type, desc in descriptions.items():
+        dates_count = len(schedule.get(waste_type, []))
         entities.append(
             WasteCollectionSensor(coordinator, config_entry, waste_type, desc)
         )
+        _LOGGER.debug("Created sensor for '%s': %d dates, color=%s",
+                     waste_type, dates_count, desc.get('color', 'N/A'))
 
     # Create aggregate sensors
     selected_types = config_entry.options.get(
@@ -186,7 +188,7 @@ class WasteCollectionSensor(CoordinatorEntity, SensorEntity):
         base_attrs = {
             ATTR_WASTE_TYPE_ID: self._description.get('id'),
             ATTR_COLOR: self._description.get('color'),
-            ATTR_DESCRIPTION: capitalize_waste_name(self._description.get('description', '')),
+            'icon': self._attr_icon,
         }
 
         if not next_date:
@@ -229,18 +231,14 @@ class WasteCollectionSensor(CoordinatorEntity, SensorEntity):
         dates = schedule.get(self._waste_type, [])
 
         if not dates:
-            _LOGGER.debug("No dates found for waste type: %s", self._waste_type)
             return None
 
         today = dt_util.now().date()
         future_dates = [d for d in dates if d.date() >= today]
 
         if future_dates:
-            _LOGGER.debug("Waste type '%s': next collection is %s (%d future dates total)",
-                         self._waste_type, future_dates[0].strftime("%Y-%m-%d"), len(future_dates))
             return future_dates[0]
 
-        _LOGGER.debug("No future dates for waste type: %s", self._waste_type)
         return None
 
     def _get_all_dates(self) -> List[datetime]:
@@ -250,7 +248,6 @@ class WasteCollectionSensor(CoordinatorEntity, SensorEntity):
 
         schedule, _ = self.coordinator.data
         dates = schedule.get(self._waste_type, [])
-        _LOGGER.debug("Waste type '%s': %d total dates", self._waste_type, len(dates))
         return dates
 
     @property

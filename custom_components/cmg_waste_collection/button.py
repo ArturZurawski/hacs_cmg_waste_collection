@@ -58,3 +58,8 @@ class WasteCollectionRefreshButton(CoordinatorEntity, ButtonEntity):
         """Handle the button press - trigger coordinator refresh."""
         _LOGGER.info("Manual refresh triggered for waste collection schedule")
         await self.coordinator.async_request_refresh()
+
+    @property
+    def available(self) -> bool:
+        """Button should always be available, even after coordinator errors."""
+        return True

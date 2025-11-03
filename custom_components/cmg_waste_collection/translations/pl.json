@@ -65,7 +65,8 @@
         "description": "Wybierz które typy odpadów uwzględnić w sensorach zbiorczych",
         "data": {
           "selected_waste_types": "Typy odpadów dla sensorów zbiorczych",
-          "event_time": "Czas eventu w kalendarzu"
+          "event_time": "Czas eventu w kalendarzu",
+          "debug_logging": "Włącz logowanie debug"
         }
       }
     }
