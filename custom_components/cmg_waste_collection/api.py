@@ -20,20 +20,18 @@ class WasteCollectionAPI:
         self._descriptions_cache = None
 
     def _post_form(self, url: str, data: dict) -> requests.Response:
-        """Send multipart/form-data request."""
-        boundary = '----WebKitFormBoundary7MA4YWxkTrZu0gW'
-        body = ''.join([
-            f'------{boundary}\r\n'
-            f'Content-Disposition: form-data; name="{k}"\r\n\r\n{v}\r\n'
-            for k, v in data.items()
-        ]) + f'------{boundary}--\r\n'
+        """Send multipart/form-data request with proper UTF-8 encoding."""
+        # Use requests' built-in multipart encoding for proper handling of special characters
+        # Convert dict values to tuples for multipart/form-data format
+        files = {k: (None, str(v)) for k, v in data.items()}
 
         headers = {
-            'Content-Type': f'multipart/form-data; boundary=----{boundary}',
             'Origin': 'https://pluginv1.dtsolution.pl',
         }
 
-        return self.session.post(url, data=body.encode('utf-8'), headers=headers)
+        _LOGGER.debug("POST %s with data: %s", url, data)
+
+        return self.session.post(url, files=files, headers=headers)
 
     def get_towns(self, community_id: str) -> List[Dict[str, Any]]:
         """Get list of towns for community."""
@@ -131,6 +129,10 @@ class WasteCollectionAPI:
     ) -> List[Dict[str, Any]]:
         """Get building type groups for street."""
         try:
+            _LOGGER.debug("=== GET BUILDING GROUPS DEBUG ===")
+            _LOGGER.debug("Params: choosed_street_ids=%s, number=%s, town_id=%s, street_name=%s, period_id=%s",
+                         choosed_street_ids, number, town_id, street_name, period_id)
+
             resp = self._post_form(f"{BASE_URL}/streets", {
                 'choosedStreetIds': choosed_street_ids,
                 'number': number,
@@ -141,6 +143,13 @@ class WasteCollectionAPI:
             })
             resp.raise_for_status()
             data = resp.json()
+
+            _LOGGER.debug("Full response data keys: %s", list(data.keys()))
+            if 'data' in data:
+                _LOGGER.debug("data keys: %s", list(data['data'].keys()))
+                if 'groups' in data['data']:
+                    _LOGGER.debug("groups keys: %s", list(data['data']['groups'].keys()))
+                    _LOGGER.debug("groups.items: %s", data['data']['groups']['items'])
 
             if data.get('success') and 'groups' in data['data']:
                 return data['data']['groups']['items']
