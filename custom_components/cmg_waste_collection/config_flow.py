@@ -222,7 +222,7 @@ class WasteCollectionConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             return await self.async_step_waste_types()
 
         try:
-            groups = await self.hass.async_add_executor_job(
+            groups, group_id, streets = await self.hass.async_add_executor_job(
                 self.api.get_building_groups,
                 self.data[CONF_STREET_CHOOSED_IDS],
                 self.data[CONF_NUMBER],
@@ -231,9 +231,25 @@ class WasteCollectionConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 self.data[CONF_PERIOD_ID]
             )
 
+            # If no groups are returned, this street has only one building type
+            # Use the street ID from streets[0].id
             if not groups:
-                errors["base"] = "no_groups_found"
-                return await self.async_step_number()
+                _LOGGER.info("No building groups to choose from (single building type street)")
+
+                if streets and len(streets) > 0:
+                    street_id = streets[0]['id']
+                    group_name = streets[0].get('schedulegroup', 'Default')
+                    _LOGGER.debug("Using street_id=%s, group_name=%s from streets[0]",
+                                 street_id, group_name)
+                else:
+                    # Fallback to choosedStreetIds if streets array is empty
+                    street_id = self.data[CONF_STREET_CHOOSED_IDS]
+                    group_name = "Default"
+                    _LOGGER.debug("streets array empty, using choosedStreetIds=%s", street_id)
+
+                self.data[CONF_GROUP_NAME] = group_name
+                self.data[CONF_STREET_ID] = street_id
+                return await self.async_step_waste_types()
 
             group_options = {
                 f"{g['name']}|{g['choosedStreetIds']}": g['name']
