@@ -135,9 +135,8 @@ class WasteCollectionAPI:
             Tuple of (groups list, groupId from response, streets list)
         """
         try:
-            _LOGGER.debug("=== GET BUILDING GROUPS DEBUG ===")
-            _LOGGER.debug("Params: choosed_street_ids=%s, number=%s, town_id=%s, street_name=%s, period_id=%s",
-                         choosed_street_ids, number, town_id, street_name, period_id)
+            _LOGGER.debug("Fetching building groups for street_ids=%s, number=%s",
+                         choosed_street_ids, number)
 
             resp = self._post_form(f"{BASE_URL}/streets", {
                 'choosedStreetIds': choosed_street_ids,
@@ -150,22 +149,15 @@ class WasteCollectionAPI:
             resp.raise_for_status()
             data = resp.json()
 
-            _LOGGER.debug("Full response data keys: %s", list(data.keys()))
-
             if data.get('success') and 'data' in data:
-                _LOGGER.debug("data keys: %s", list(data['data'].keys()))
-
                 streets = data['data'].get('streets', [])
-                _LOGGER.debug("streets: %s", streets)
 
                 if 'groups' in data['data']:
-                    _LOGGER.debug("groups keys: %s", list(data['data']['groups'].keys()))
-
                     groups_items = data['data']['groups']['items']
                     group_id = data['data']['groups'].get('groupId')
 
-                    _LOGGER.debug("groups.items: %s", groups_items)
-                    _LOGGER.debug("groups.groupId: %s", group_id)
+                    _LOGGER.debug("Found %d building groups, groupId=%s, %d streets",
+                                 len(groups_items), group_id, len(streets))
 
                     return groups_items, group_id, streets
 

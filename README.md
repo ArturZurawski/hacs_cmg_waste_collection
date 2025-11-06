@@ -2,6 +2,8 @@
 
 Home Assistant integration for waste collection schedules using EcoHarmonogram.pl API.
 
+Card https://github.com/ArturZurawski/cmg_waste_collection_card
+
 ## Architecture
 
 ### Components
@@ -12,6 +14,7 @@ waste_collection/
 ├── api.py               # API client for EcoHarmonogram.pl
 ├── config_flow.py       # Multi-step configuration flow
 ├── sensor.py            # Sensor entities (individual, aggregate, info)
+├── calendar.py          # Calendar entity for waste collection events
 ├── button.py            # Manual refresh button
 ├── const.py             # Constants and configuration keys
 ├── manifest.json        # Integration metadata
@@ -91,6 +94,12 @@ waste_collection/
 #### Info Sensors (diagnostic)
 - `sensor.schedule_last_change`: Date when schedule was modified (from API)
 - `sensor.last_update`: Timestamp of last data fetch
+
+#### Calendar
+- `calendar.waste_collection_schedule`: Calendar entity with all waste collection events
+  - Color-coded by waste type (using CMG official colors)
+  - Configurable event time (all-day or specific hour, set during config flow)
+  - Event title shows waste type name
 
 #### Button
 - `button.refresh_schedule`: Manual data refresh
@@ -177,22 +186,51 @@ curl -X POST 'https://pluginecoapi.ecoharmonogram.pl/v1/streets' \
   --data-raw $'------WebKitFormBoundary7MA4YWxkTrZu0gW\r\nContent-Disposition: form-data; name="choosedStreetIds"\r\n\r\n12345,67890\r\n------WebKitFormBoundary7MA4YWxkTrZu0gW\r\nContent-Disposition: form-data; name="number"\r\n\r\n6\r\n------WebKitFormBoundary7MA4YWxkTrZu0gW\r\nContent-Disposition: form-data; name="townId"\r\n\r\n2149\r\n------WebKitFormBoundary7MA4YWxkTrZu0gW\r\nContent-Disposition: form-data; name="streetName"\r\n\r\nDzielna\r\n------WebKitFormBoundary7MA4YWxkTrZu0gW\r\nContent-Disposition: form-data; name="schedulePeriodId"\r\n\r\n8814\r\n------WebKitFormBoundary7MA4YWxkTrZu0gW\r\nContent-Disposition: form-data; name="groupId"\r\n\r\n1\r\n------WebKitFormBoundary7MA4YWxkTrZu0gW--\r\n'
 ```
 
-**Response:**
+**Response (Multiple building types):**
 ```json
 {
   "success": true,
   "data": {
+    "streets": [
+      {"id": "24784516", "name": "Dzielna", "schedulegroup": "Zabudowa jednorodzinna"},
+      {"id": "24784517", "name": "Dzielna", "schedulegroup": "Zabudowa wielorodzinna"}
+    ],
+    "type": 2,
     "groups": {
       "items": [
         {
           "name": "Zabudowa jednorodzinna",
-          "choosedStreetIds": "23868396"
+          "choosedStreetIds": "24784516"
+        },
+        {
+          "name": "Zabudowa wielorodzinna",
+          "choosedStreetIds": "24784517"
         }
-      ]
+      ],
+      "groupId": "g1"
     }
   }
 }
 ```
+
+**Response (Single building type):**
+```json
+{
+  "success": true,
+  "data": {
+    "streets": [
+      {"id": "24785221", "name": "Głuszca", "schedulegroup": "Zabudowa jednorodzinna"}
+    ],
+    "type": 3,
+    "groups": {
+      "items": [],
+      "groupId": ""
+    }
+  }
+}
+```
+
+**Note:** When a street has only one building type, `groups.items` is empty. The integration automatically uses `streets[0].id` as the street ID and skips the building type selection step in the config flow.
 
 ### 5. Get Waste Schedule (Main Endpoint)
 

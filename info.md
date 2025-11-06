@@ -6,6 +6,7 @@ Home Assistant integration for waste collection schedules in Gdańsk from Czyste
 
 - 🗑️ **Sensors for each waste type** - BIO, MIXED, PAPER, METALS, GLASS, BULKY
 - 📅 **Aggregate sensors** - Know if collection is today or tomorrow
+- 📆 **Calendar integration** - All waste collections in Home Assistant calendar
 - 🎨 **CMG colors** - Each type uses official bin colors
 - 🔄 **Refresh button** - Manual data fetch from API
 - ⏰ **Auto-update** - Daily at midnight
@@ -80,6 +81,13 @@ Each sensor shows **next collection date**:
 - `sensor.last_update` - Last API data fetch
 - `sensor.schedule_last_change` - Last schedule change by CMG
 
+### Calendar
+
+- `calendar.waste_collection_schedule` - All waste collections as calendar events
+  - Color-coded by waste type
+  - Configurable event time (all-day or specific hour)
+  - Shows waste type name as event title
+
 ### Button
 
 - `button.refresh_schedule` - Fetch data now (don't wait until midnight)
@@ -100,19 +108,7 @@ Each sensor has a `color` attribute with hex code matching official bin colors:
 
 ### Card with upcoming collections
 
-```yaml
-type: entities
-title: 🗑️ Waste Schedule
-entities:
-  - sensor.today_collection
-  - sensor.tomorrow_collection
-  - type: divider
-  - sensor.bio
-  - sensor.resztkowe
-  - sensor.papier
-  - sensor.metale_i_tworzywa_sztuczne
-  - sensor.szklo
-```
+https://github.com/ArturZurawski/cmg_waste_collection_card
 
 ### Automation - evening reminder
 
