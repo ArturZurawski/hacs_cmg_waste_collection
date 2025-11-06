@@ -139,6 +139,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data[DOMAIN][entry.entry_id] = {
         "coordinator": coordinator,
         "api": api,
+        "sensor_list": [],  # Will be populated when sensors are created
     }
 
     # Fetch initial data

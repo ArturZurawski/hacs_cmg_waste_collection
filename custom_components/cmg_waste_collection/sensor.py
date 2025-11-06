@@ -10,6 +10,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity, DataUpdateCoordinator
 from homeassistant.helpers.entity import DeviceInfo, EntityCategory
 from homeassistant.util import dt as dt_util
+from homeassistant.util import slugify
 
 from .const import (
     ATTR_ALL_DATES,
@@ -70,14 +71,31 @@ async def async_setup_entry(
 
     schedule, descriptions = coordinator.data
 
+    # Clear sensor list (in case of reload)
+    hass.data[DOMAIN][config_entry.entry_id]["sensor_list"] = []
+
     # Create sensor for each waste type
     for waste_type, desc in descriptions.items():
-        dates_count = len(schedule.get(waste_type, []))
+        # Use slugify to match HA's entity_id normalization
+        waste_slug = slugify(waste_type)
+        entity_id = f"sensor.waste_collection_{waste_slug}"
+
+        # Add to sensor list
+        hass.data[DOMAIN][config_entry.entry_id]["sensor_list"].append(entity_id)
+
         entities.append(
             WasteCollectionSensor(coordinator, config_entry, waste_type, desc)
         )
-        _LOGGER.debug("Created sensor for '%s': %d dates, color=%s",
-                     waste_type, dates_count, desc.get('color', 'N/A'))
+        _LOGGER.debug("Created sensor '%s' with entity_id: %s", waste_type, entity_id)
+
+    # Create sensor that lists all waste sensors (for card)
+    entities.append(
+        WasteSensorsListSensor(hass, coordinator, config_entry)
+    )
+
+    _LOGGER.info("Created %d waste type sensors, list: %s",
+                 len(hass.data[DOMAIN][config_entry.entry_id]["sensor_list"]),
+                 hass.data[DOMAIN][config_entry.entry_id]["sensor_list"])
 
     # Create aggregate sensors
     selected_types = config_entry.options.get(
@@ -525,6 +543,41 @@ class ScheduleChangeDateSensor(SensorEntity):
         """Return additional attributes."""
         return {
             "source": "schedule_period_api",
+        }
+
+
+class WasteSensorsListSensor(CoordinatorEntity, SensorEntity):
+    """Sensor listing all waste collection sensor entity IDs."""
+
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        coordinator: DataUpdateCoordinator,
+        config_entry: ConfigEntry,
+    ) -> None:
+        """Initialize the sensor."""
+        super().__init__(coordinator)
+        self._hass = hass
+        self._config_entry = config_entry
+        self._attr_name = "Waste sensors"
+        self._attr_unique_id = f"{config_entry.entry_id}_waste_sensors_list"
+        self._attr_icon = "mdi:format-list-bulleted"
+        self._attr_has_entity_name = True
+        self._attr_device_info = get_device_info(config_entry)
+        self._attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    @property
+    def native_value(self) -> int:
+        """Return the count of sensors."""
+        sensor_list = self._hass.data[DOMAIN][self._config_entry.entry_id].get("sensor_list", [])
+        return len(sensor_list)
+
+    @property
+    def extra_state_attributes(self) -> Dict[str, Any]:
+        """Return the list of sensor entity IDs."""
+        sensor_list = self._hass.data[DOMAIN][self._config_entry.entry_id].get("sensor_list", [])
+        return {
+            "entity_ids": sensor_list,
         }
 
 
