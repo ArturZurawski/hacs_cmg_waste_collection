@@ -1,0 +1,123 @@
+name: Create Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version number (e.g., 1.0.3). Leave empty to auto-increment from last release.'
+        required: false
+        type: string
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  # Fetch all history for tags
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Determine version
+        id: version
+        run: |
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+            echo "Using provided version: $VERSION"
+          else
+            # Get the latest tag
+            LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+            echo "Latest tag: $LATEST_TAG"
+
+            # Remove 'v' prefix if present
+            LATEST_VERSION=${LATEST_TAG#v}
+
+            # Split version into parts
+            IFS='.' read -r -a VERSION_PARTS <<< "$LATEST_VERSION"
+            MAJOR="${VERSION_PARTS[0]:-0}"
+            MINOR="${VERSION_PARTS[1]:-0}"
+            PATCH="${VERSION_PARTS[2]:-0}"
+
+            # Increment patch version
+            PATCH=$((PATCH + 1))
+            VERSION="${MAJOR}.${MINOR}.${PATCH}"
+            echo "Auto-incremented version: $VERSION"
+          fi
+
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=v$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Update manifest.json
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          python << EOF
+          import json
+
+          manifest_path = 'custom_components/cmg_waste_collection/manifest.json'
+
+          with open(manifest_path, 'r') as f:
+              manifest = json.load(f)
+
+          manifest['version'] = '$VERSION'
+
+          with open(manifest_path, 'w') as f:
+              json.dump(manifest, f, indent=2)
+              f.write('\n')  # Add trailing newline
+
+          print(f"Updated manifest.json to version {manifest['version']}")
+          EOF
+
+      - name: Commit version bump
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add custom_components/cmg_waste_collection/manifest.json
+          git commit -m "Bump version to ${{ steps.version.outputs.version }}"
+          git push
+
+      - name: Create and push tag
+        run: |
+          git tag ${{ steps.version.outputs.tag }}
+          git push origin ${{ steps.version.outputs.tag }}
+
+      - name: Create GitHub Release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          release_name: Release ${{ steps.version.outputs.version }}
+          body: |
+            ## Changes in version ${{ steps.version.outputs.version }}
+
+            See the [CHANGELOG](https://github.com/${{ github.repository }}/commits/${{ steps.version.outputs.tag }}) for details.
+
+            ### Installation
+
+            #### HACS (Recommended)
+            1. Open HACS in your Home Assistant instance
+            2. Go to "Integrations"
+            3. Click the three dots in the top right corner
+            4. Select "Custom repositories"
+            5. Add this repository URL and select "Integration" as the category
+            6. Click "Install" on the "Czyste Miasto Gdansk Waste Collection" card
+
+            #### Manual Installation
+            1. Download the latest release
+            2. Copy the `custom_components/cmg_waste_collection` folder to your Home Assistant `config/custom_components/` directory
+            3. Restart Home Assistant
+            4. Add the integration via the UI
+          draft: false
+          prerelease: false
+
+      - name: Run validation
+        run: |
+          echo "Release ${{ steps.version.outputs.version }} created successfully!"
+          echo "Validation workflow will run automatically for the new release."
