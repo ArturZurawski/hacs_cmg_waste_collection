@@ -3,6 +3,8 @@ name: Validate
 on:
   push:
   pull_request:
+  release:
+    types: [published]
   workflow_dispatch:
 
 jobs:
@@ -10,27 +12,40 @@ jobs:
     runs-on: ubuntu-latest
     name: HACS Validation
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - name: HACS Action
+      - name: HACS Validation
         uses: hacs/action@main
         with:
-          category: integration
+          category: "integration"
+
+      - name: Validation Success
+        run: |
+          echo "✅ HACS validation passed successfully!"
+          echo "The repository meets all HACS requirements for the integration category."
 
   validate-hassfest:
     runs-on: ubuntu-latest
     name: Hassfest Validation
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - name: Hassfest
+      - name: Hassfest Validation
         uses: home-assistant/actions/hassfest@master
+
+      - name: Validation Success
+        run: |
+          echo "✅ Hassfest validation passed successfully!"
+          echo "The integration meets all Home Assistant requirements."
 
   validate-python:
     runs-on: ubuntu-latest
     name: Python Syntax Check
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -44,7 +59,13 @@ jobs:
 
       - name: Lint with flake8
         run: |
+          echo "Running Python syntax checks..."
           # Stop the build if there are Python syntax errors
           flake8 custom_components/cmg_waste_collection --count --select=E9,F63,F7,F82 --show-source --statistics
           # Exit-zero treats all errors as warnings
           flake8 custom_components/cmg_waste_collection --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+
+      - name: Validation Success
+        run: |
+          echo "✅ Python syntax validation passed successfully!"
+          echo "No critical Python syntax errors found."

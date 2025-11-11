@@ -9,5 +9,5 @@
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/ArturZurawski/cmg_waste_collection/issues",
   "requirements": ["requests>=2.31.0"],
-  "version": "1.0.2"
+  "version": "0.0.1"
 }
