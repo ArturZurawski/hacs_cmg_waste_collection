@@ -11,14 +11,22 @@ on:
   release:
     types: [published]
   workflow_dispatch:
+  workflow_run:
+    workflows: ["Create Release"]
+    types:
+      - completed
 
 jobs:
   validate-hacs:
     runs-on: ubuntu-latest
     name: HACS Validation
+    # Run only if workflow_run was successful or if triggered by other events
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name != 'workflow_run' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_branch || github.ref }}
 
       - name: HACS Validation
         uses: hacs/action@main
@@ -33,9 +41,13 @@ jobs:
   validate-hassfest:
     runs-on: ubuntu-latest
     name: Hassfest Validation
+    # Run only if workflow_run was successful or if triggered by other events
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name != 'workflow_run' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_branch || github.ref }}
 
       - name: Hassfest Validation
         uses: home-assistant/actions/hassfest@master
@@ -48,9 +60,13 @@ jobs:
   validate-python:
     runs-on: ubuntu-latest
     name: Python Syntax Check
+    # Run only if workflow_run was successful or if triggered by other events
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name != 'workflow_run' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_branch || github.ref }}
 
       - name: Set up Python
         uses: actions/setup-python@v4
