@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version number (e.g., 1.0.3). Leave empty to auto-increment from last release.'
+        description: 'Version number (e.g., 1.0.3). Leave empty to auto-increment'
         required: false
         type: string
 
@@ -15,109 +15,168 @@ jobs:
       contents: write
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Fetch all history for tags
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Determine version
+        id: version
+        run: |
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            # Use provided version
+            VERSION="${{ github.event.inputs.version }}"
+            echo "Using provided version: $VERSION"
+          else
+            # Get latest tag
+            LATEST_TAG=$(git tag -l "v*" --sort=-v:refname | head -n 1)
+
+            if [ -z "$LATEST_TAG" ]; then
+              # No tags exist, start with 1.0.0
+              VERSION="1.0.0"
+              echo "No previous tags found, starting with: $VERSION"
+            else
+              # Remove 'v' prefix and increment patch version
+              LATEST_VERSION=${LATEST_TAG#v}
+              echo "Latest version: $LATEST_VERSION"
+
+              # Split version into parts
+              IFS='.' read -r MAJOR MINOR PATCH <<< "$LATEST_VERSION"
+
+              # Increment patch version
+              PATCH=$((PATCH + 1))
+              VERSION="$MAJOR.$MINOR.$PATCH"
+              echo "Auto-incremented version: $VERSION"
+            fi
+          fi
+
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=v$VERSION" >> $GITHUB_OUTPUT
+          echo "Final version: $VERSION"
+
+      - name: Check if tag exists
+        run: |
+          if git rev-parse "v${{ steps.version.outputs.version }}" >/dev/null 2>&1; then
+            echo "Error: Tag v${{ steps.version.outputs.version }} already exists!"
+            exit 1
+          fi
 
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.11'
 
-      - name: Determine version
-        id: version
-        run: |
-          if [ -n "${{ github.event.inputs.version }}" ]; then
-            VERSION="${{ github.event.inputs.version }}"
-            echo "Using provided version: $VERSION"
-          else
-            # Get the latest tag
-            LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
-            echo "Latest tag: $LATEST_TAG"
-
-            # Remove 'v' prefix if present
-            LATEST_VERSION=${LATEST_TAG#v}
-
-            # Split version into parts
-            IFS='.' read -r -a VERSION_PARTS <<< "$LATEST_VERSION"
-            MAJOR="${VERSION_PARTS[0]:-0}"
-            MINOR="${VERSION_PARTS[1]:-0}"
-            PATCH="${VERSION_PARTS[2]:-0}"
-
-            # Increment patch version
-            PATCH=$((PATCH + 1))
-            VERSION="${MAJOR}.${MINOR}.${PATCH}"
-            echo "Auto-incremented version: $VERSION"
-          fi
-
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "tag=v$VERSION" >> $GITHUB_OUTPUT
-
-      - name: Update manifest.json
+      - name: Update manifest.json version
         run: |
           VERSION="${{ steps.version.outputs.version }}"
+
+          # Update version in manifest.json using Python for safe JSON handling
           python << EOF
           import json
 
           manifest_path = 'custom_components/cmg_waste_collection/manifest.json'
 
-          with open(manifest_path, 'r') as f:
+          with open(manifest_path, 'r', encoding='utf-8') as f:
               manifest = json.load(f)
 
           manifest['version'] = '$VERSION'
 
-          with open(manifest_path, 'w') as f:
-              json.dump(manifest, f, indent=2)
-              f.write('\n')  # Add trailing newline
+          with open(manifest_path, 'w', encoding='utf-8') as f:
+              json.dump(manifest, f, indent=2, ensure_ascii=False)
+              f.write('\n')
 
           print(f"Updated manifest.json to version {manifest['version']}")
           EOF
 
-      - name: Commit version bump
+          # Verify the change
+          echo "Updated manifest.json:"
+          grep '"version":' custom_components/cmg_waste_collection/manifest.json
+
+      - name: Create release package
         run: |
-          git config --local user.email "github-actions[bot]@users.noreply.github.com"
-          git config --local user.name "github-actions[bot]"
+          # Create a zip file of the integration for manual installation
+          mkdir -p release
+          cd custom_components
+          zip -r ../release/cmg_waste_collection.zip cmg_waste_collection/
+          cd ..
+
+          echo "Created release package:"
+          ls -lh release/
+
+      - name: Commit version changes
+        run: |
           git add custom_components/cmg_waste_collection/manifest.json
-          git commit -m "Bump version to ${{ steps.version.outputs.version }}"
-          git push
+          git commit -m "chore: bump version to ${{ steps.version.outputs.version }}"
 
       - name: Create and push tag
         run: |
-          git tag ${{ steps.version.outputs.tag }}
-          git push origin ${{ steps.version.outputs.tag }}
+          git tag -a "${{ steps.version.outputs.tag }}" -m "Release ${{ steps.version.outputs.version }}"
+          git push origin HEAD:${{ github.ref_name }}
+          git push origin "${{ steps.version.outputs.tag }}"
 
       - name: Create GitHub Release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.tag }}
-          release_name: Release ${{ steps.version.outputs.version }}
+          name: Release ${{ steps.version.outputs.version }}
           body: |
-            ## Changes in version ${{ steps.version.outputs.version }}
+            ## 🚀 Release ${{ steps.version.outputs.version }}
 
-            See the [CHANGELOG](https://github.com/${{ github.repository }}/commits/${{ steps.version.outputs.tag }}) for details.
+            ### Installation via HACS (Recommended)
 
-            ### Installation
-
-            #### HACS (Recommended)
             1. Open HACS in your Home Assistant instance
-            2. Go to "Integrations"
-            3. Click the three dots in the top right corner
+            2. Go to "Integrations" section
+            3. Click on the three dots in the top right corner
             4. Select "Custom repositories"
-            5. Add this repository URL and select "Integration" as the category
-            6. Click "Install" on the "Czyste Miasto Gdansk Waste Collection" card
+            5. Add this repository: `https://github.com/${{ github.repository }}`
+            6. Select category: "Integration"
+            7. Click "Add"
+            8. Find "Czyste Miasto Gdansk Waste Collection" and install
+            9. Restart Home Assistant
+            10. Add the integration via Settings → Devices & Services → Add Integration
 
-            #### Manual Installation
-            1. Download the latest release
-            2. Copy the `custom_components/cmg_waste_collection` folder to your Home Assistant `config/custom_components/` directory
-            3. Restart Home Assistant
-            4. Add the integration via the UI
+            ### Manual Installation
+
+            1. Download `cmg_waste_collection.zip` from the assets below
+            2. Extract the zip file
+            3. Copy the `cmg_waste_collection` folder to your Home Assistant `config/custom_components/` directory
+            4. Restart Home Assistant
+            5. Add the integration via Settings → Devices & Services → Add Integration
+
+            ### Configuration
+
+            After installation, add the integration through the Home Assistant UI:
+            1. Go to Settings → Devices & Services
+            2. Click "+ Add Integration"
+            3. Search for "Czyste Miasto Gdansk Waste Collection"
+            4. Follow the configuration steps
+
+            See [README.md](https://github.com/${{ github.repository }}/blob/${{ steps.version.outputs.tag }}/README.md) for full documentation.
+
+            ---
+
+            **Full Changelog**: ${{ github.event.repository.html_url }}/commits/${{ steps.version.outputs.tag }}
+          files: |
+            release/cmg_waste_collection.zip
           draft: false
           prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Run validation
+      - name: Summary
         run: |
-          echo "Release ${{ steps.version.outputs.version }} created successfully!"
-          echo "Validation workflow will run automatically for the new release."
+          echo "## ✅ Release Created Successfully!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** ${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Tag:** ${{ steps.version.outputs.tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "🔗 [View Release](https://github.com/${{ github.repository }}/releases/tag/${{ steps.version.outputs.tag }})" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "The validation workflow will run automatically for this release." >> $GITHUB_STEP_SUMMARY
