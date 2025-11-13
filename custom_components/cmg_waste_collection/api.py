@@ -348,16 +348,14 @@ class WasteCollectionAPI:
             schedule, descriptions = result
 
             if not schedule or not descriptions:
-                _LOGGER.warning("Empty schedule or descriptions after parsing")
-
                 # If we have cached data, use it (new period may not have data yet)
                 if self._schedule_cache and self._descriptions_cache:
-                    _LOGGER.warning("New period has no data, using cached data from previous period (%d waste types)",
+                    _LOGGER.info("Empty schedule or descriptions after parsing - new period may not have data yet, using cached data from previous period (%d waste types)",
                                   len(self._schedule_cache))
                     return self._schedule_cache, self._descriptions_cache
 
-                # No cached data available
-                _LOGGER.error("No waste types found and no cached data available")
+                # No cached data available - this is a real problem
+                _LOGGER.error("Empty schedule or descriptions after parsing and no cached data available")
                 raise Exception("No waste types found in schedule")
 
             _LOGGER.debug("Successfully parsed schedule: %d waste types", len(schedule))
