@@ -386,11 +386,6 @@ class WasteCollectionConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 class WasteCollectionOptionsFlow(config_entries.OptionsFlow):
     """Handle options flow for Waste Collection."""
 
-    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
-        """Initialize options flow."""
-        super().__init__(config_entry)
-        self.api = WasteCollectionAPI()
-
     async def async_step_init(
         self, user_input: Optional[Dict[str, Any]] = None
     ) -> FlowResult:
@@ -401,8 +396,9 @@ class WasteCollectionOptionsFlow(config_entries.OptionsFlow):
             return self.async_create_entry(title="", data=user_input)
 
         try:
+            api = WasteCollectionAPI()
             raw_data = await self.hass.async_add_executor_job(
-                self.api.get_waste_types,
+                api.get_waste_types,
                 self.config_entry.data[CONF_NUMBER],
                 self.config_entry.data[CONF_STREET_ID],
                 self.config_entry.data[CONF_TOWN_ID],
