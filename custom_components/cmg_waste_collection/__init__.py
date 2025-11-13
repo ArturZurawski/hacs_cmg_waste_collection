@@ -55,8 +55,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     street_id = entry.data[CONF_STREET_ID]
     number = entry.data[CONF_NUMBER]
 
-    # Initialize API
-    api = WasteCollectionAPI()
+    # Initialize API with debug flag
+    api = WasteCollectionAPI(debug=debug_logging)
 
     # Create coordinator with NO automatic updates
     async def async_update_data():

@@ -13,14 +13,20 @@ _LOGGER = logging.getLogger(__name__)
 class WasteCollectionAPI:
     """API client for waste collection schedule."""
 
-    def __init__(self):
+    def __init__(self, debug: bool = False):
         """Initialize the API client."""
         self.session = requests.Session()
         self._schedule_cache = None
         self._descriptions_cache = None
+        self.debug = debug
 
     def _post_form(self, url: str, data: dict) -> requests.Response:
         """Send multipart/form-data request."""
+        if self.debug:
+            _LOGGER.debug("=" * 80)
+            _LOGGER.debug("POST REQUEST TO: %s", url)
+            _LOGGER.debug("REQUEST DATA: %s", data)
+
         boundary = '----WebKitFormBoundary7MA4YWxkTrZu0gW'
         body = ''.join([
             f'------{boundary}\r\n'
@@ -33,18 +39,37 @@ class WasteCollectionAPI:
             'Origin': 'https://pluginv1.dtsolution.pl',
         }
 
-        return self.session.post(url, data=body.encode('utf-8'), headers=headers)
+        response = self.session.post(url, data=body.encode('utf-8'), headers=headers)
+
+        if self.debug:
+            _LOGGER.debug("RESPONSE STATUS: %s", response.status_code)
+            try:
+                _LOGGER.debug("RESPONSE JSON: %s", response.json())
+            except Exception:
+                _LOGGER.debug("RESPONSE TEXT: %s", response.text[:500])
+            _LOGGER.debug("=" * 80)
+
+        return response
 
     def get_towns(self, community_id: str) -> List[Dict[str, Any]]:
         """Get list of towns for community."""
         try:
-            resp = self.session.get(
-                f"{BASE_URL}/townsForCommunity",
-                params={'communityId': community_id},
-                timeout=30
-            )
+            url = f"{BASE_URL}/townsForCommunity"
+            params = {'communityId': community_id}
+
+            if self.debug:
+                _LOGGER.debug("=" * 80)
+                _LOGGER.debug("GET REQUEST TO: %s", url)
+                _LOGGER.debug("REQUEST PARAMS: %s", params)
+
+            resp = self.session.get(url, params=params, timeout=30)
             resp.raise_for_status()
             data = resp.json()
+
+            if self.debug:
+                _LOGGER.debug("RESPONSE STATUS: %s", resp.status_code)
+                _LOGGER.debug("RESPONSE JSON: %s", data)
+                _LOGGER.debug("=" * 80)
 
             if data.get('success'):
                 return data['data']['towns']
@@ -57,13 +82,22 @@ class WasteCollectionAPI:
     def get_schedule_periods(self, community_id: str) -> List[Dict[str, Any]]:
         """Get list of schedule periods for community."""
         try:
-            resp = self.session.get(
-                f"{BASE_URL}/schedulePeriodsWithDataForCommunity",
-                params={'communityId': community_id},
-                timeout=30
-            )
+            url = f"{BASE_URL}/schedulePeriodsWithDataForCommunity"
+            params = {'communityId': community_id}
+
+            if self.debug:
+                _LOGGER.debug("=" * 80)
+                _LOGGER.debug("GET REQUEST TO: %s", url)
+                _LOGGER.debug("REQUEST PARAMS: %s", params)
+
+            resp = self.session.get(url, params=params, timeout=30)
             resp.raise_for_status()
             data = resp.json()
+
+            if self.debug:
+                _LOGGER.debug("RESPONSE STATUS: %s", resp.status_code)
+                _LOGGER.debug("RESPONSE JSON: %s", data)
+                _LOGGER.debug("=" * 80)
 
             if data.get('success'):
                 return data['data']['schedulePeriods']
@@ -217,6 +251,18 @@ class WasteCollectionAPI:
         """Parse schedule data into structured format."""
         schedules = raw_data.get('schedules', [])
         descriptions_list = raw_data.get('scheduleDescription', [])
+
+        if self.debug:
+            _LOGGER.debug("=" * 80)
+            _LOGGER.debug("PARSING SCHEDULE DATA")
+            _LOGGER.debug("Raw data keys: %s", list(raw_data.keys()))
+            _LOGGER.debug("Number of schedules: %d", len(schedules))
+            _LOGGER.debug("Number of descriptions: %d", len(descriptions_list))
+            if descriptions_list:
+                _LOGGER.debug("Descriptions: %s", descriptions_list)
+            if schedules:
+                _LOGGER.debug("First 3 schedule items: %s", schedules[:3])
+            _LOGGER.debug("=" * 80)
 
         _LOGGER.debug("Parsing %d schedules and %d descriptions", len(schedules), len(descriptions_list))
 
