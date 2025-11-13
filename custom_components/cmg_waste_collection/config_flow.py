@@ -378,9 +378,9 @@ class WasteCollectionConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     @callback
     def async_get_options_flow(
         config_entry: config_entries.ConfigEntry,
-    ) -> "WasteCollectionOptionsFlow":
+    ) -> config_entries.OptionsFlow:
         """Get the options flow for this handler."""
-        return WasteCollectionOptionsFlow(config_entry)
+        return WasteCollectionOptionsFlow()
 
 
 class WasteCollectionOptionsFlow(config_entries.OptionsFlow):
