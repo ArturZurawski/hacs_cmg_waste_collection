@@ -271,7 +271,8 @@ class WasteCollectionSensor(CoordinatorEntity, SensorEntity):
     @property
     def available(self) -> bool:
         """Return if entity is available."""
-        return self.coordinator.last_update_success and self.coordinator.data is not None
+        # Keep showing last known values even if update fails
+        return self.coordinator.data is not None
 
 
 class TodayCollectionSensor(CoordinatorEntity, SensorEntity):
@@ -340,7 +341,8 @@ class TodayCollectionSensor(CoordinatorEntity, SensorEntity):
     @property
     def available(self) -> bool:
         """Return if entity is available."""
-        return self.coordinator.last_update_success and self.coordinator.data is not None
+        # Keep showing last known values even if update fails
+        return self.coordinator.data is not None
 
 
 class TomorrowCollectionSensor(CoordinatorEntity, SensorEntity):
@@ -410,7 +412,8 @@ class TomorrowCollectionSensor(CoordinatorEntity, SensorEntity):
     @property
     def available(self) -> bool:
         """Return if entity is available."""
-        return self.coordinator.last_update_success and self.coordinator.data is not None
+        # Keep showing last known values even if update fails
+        return self.coordinator.data is not None
 
 
 class NextCollectionSensor(CoordinatorEntity, SensorEntity):
@@ -516,7 +519,8 @@ class NextCollectionSensor(CoordinatorEntity, SensorEntity):
     @property
     def available(self) -> bool:
         """Return if entity is available."""
-        return self.coordinator.last_update_success and self.coordinator.data is not None
+        # Keep showing last known values even if update fails
+        return self.coordinator.data is not None
 
 
 class ScheduleChangeDateSensor(SensorEntity):
