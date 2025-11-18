@@ -81,10 +81,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                          current_period['endDate'])
 
             # Log if period changed
-            if period_id != entry.data.get(CONF_PERIOD_ID):
+            old_period_id = entry.data.get(CONF_PERIOD_ID)
+            period_changed = period_id != old_period_id
+            if period_changed:
                 _LOGGER.info(
                     "Schedule period changed from %s to %s (%s - %s)",
-                    entry.data.get(CONF_PERIOD_ID),
+                    old_period_id,
                     period_id,
                     current_period['startDate'],
                     current_period['endDate']
@@ -108,10 +110,40 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
             schedule, descriptions = result
 
+            # If new period has no data, try the old period as fallback
+            if (not schedule or not descriptions) and period_changed and old_period_id:
+                _LOGGER.warning(
+                    "New period %s has no data, trying previous period %s as fallback",
+                    period_id,
+                    old_period_id
+                )
+                try:
+                    result = await hass.async_add_executor_job(
+                        api.update,
+                        number,
+                        street_id,
+                        town_id,
+                        street_name,
+                        old_period_id,
+                        None,
+                    )
+                    if result and isinstance(result, tuple) and len(result) == 2:
+                        schedule, descriptions = result
+                        if schedule and descriptions:
+                            _LOGGER.info(
+                                "Successfully loaded data from previous period %s: %d waste types",
+                                old_period_id,
+                                len(schedule)
+                            )
+                            # Continue using old period for now
+                            period_id = old_period_id
+                except Exception as fallback_err:
+                    _LOGGER.warning("Failed to load old period %s: %s", old_period_id, fallback_err)
+
             if not schedule or not descriptions:
                 _LOGGER.warning("Empty schedule or descriptions: schedule=%s, descriptions=%s",
                             bool(schedule), bool(descriptions))
-                _LOGGER.warning("New period may not have data yet, keeping old data if available")
+                _LOGGER.warning("Period %s may not have data yet, keeping old data if available", period_id)
                 # Don't raise error immediately - coordinator will use cached data
                 raise UpdateFailed("Empty data received from API - period may not have data yet")
 
