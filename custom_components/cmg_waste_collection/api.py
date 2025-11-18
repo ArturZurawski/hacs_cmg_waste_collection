@@ -231,6 +231,39 @@ class WasteCollectionAPI:
             _LOGGER.error("Error fetching building groups: %s", err)
             raise
 
+    def is_street_id_for_specific_building(
+        self,
+        town_id: str,
+        period_id: str,
+        street_id: str,
+        user_number: str
+    ) -> bool:
+        """Check if street_id is for a specific building (not user's address).
+
+        Returns True if street_id has a specific number assigned that doesn't match user_number.
+        This helps detect when we're using wrong street_id (e.g., church/company instead of residential).
+        """
+        try:
+            streets = self.get_streets(town_id, period_id)
+
+            for street in streets:
+                if street.get('id') == street_id:
+                    numbers = street.get('numbers', '')
+                    # If numbers field is not empty, it's a specific building
+                    if numbers and numbers != '':
+                        # Check if user's number matches
+                        if user_number not in numbers:
+                            _LOGGER.warning(
+                                "Street ID %s is for specific building(s) '%s' (user has '%s')",
+                                street_id, numbers, user_number
+                            )
+                            return True
+            return False
+
+        except Exception as err:
+            _LOGGER.debug("Error checking street_id specificity: %s", err)
+            return False
+
     def find_new_street_id(
         self,
         town_id: str,

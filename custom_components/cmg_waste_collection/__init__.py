@@ -112,7 +112,27 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
             schedule, descriptions = result
 
-            # If API returns empty data, try to find new street_id
+            # Check if current street_id is for wrong building (e.g., company/church instead of user's address)
+            # This can happen after automatic recovery picked wrong street_id
+            if schedule and descriptions:
+                is_wrong_building = await hass.async_add_executor_job(
+                    api.is_street_id_for_specific_building,
+                    town_id,
+                    period_id,
+                    current_street_id,
+                    number
+                )
+
+                if is_wrong_building:
+                    _LOGGER.warning(
+                        "Current street_id %s is for a different building, searching for correct one",
+                        current_street_id
+                    )
+                    # Force search for correct street_id
+                    schedule = {}
+                    descriptions = {}
+
+            # If API returns empty data or wrong building, try to find new street_id
             # (API sometimes changes street IDs between periods)
             if not schedule or not descriptions:
                 _LOGGER.warning(
