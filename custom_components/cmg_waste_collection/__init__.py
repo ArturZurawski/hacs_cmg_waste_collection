@@ -18,6 +18,7 @@ from .const import (
     CONF_PERIOD_END,
     CONF_PERIOD_ID,
     CONF_PERIOD_START,
+    CONF_SELECTED_WASTE_TYPES,
     CONF_STREET_CHOOSED_IDS,
     CONF_STREET_ID,
     CONF_STREET_NAME,
@@ -202,6 +203,45 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 _LOGGER.warning("New period may not have data yet, keeping old data if available")
                 # Don't raise error immediately - coordinator will use cached data
                 raise UpdateFailed("Empty data received from API - period may not have data yet")
+
+            # If period changed, update selected_waste_types with new IDs
+            if period_id != entry.data.get(CONF_PERIOD_ID):
+                old_selected_ids = entry.options.get(
+                    CONF_SELECTED_WASTE_TYPES,
+                    entry.data.get(CONF_SELECTED_WASTE_TYPES, [])
+                )
+
+                if old_selected_ids:
+                    # Get old descriptions to map old ID -> waste name
+                    old_data = coordinator.data
+                    old_id_to_name = {}
+                    if old_data:
+                        _, old_descriptions = old_data
+                        for waste_name, desc in old_descriptions.items():
+                            old_id_to_name[desc.get('id')] = waste_name
+
+                    # Map selected waste names to new IDs
+                    selected_names = [old_id_to_name.get(id) for id in old_selected_ids if id in old_id_to_name]
+                    new_selected_ids = []
+                    for waste_name, desc in descriptions.items():
+                        if waste_name in selected_names:
+                            new_selected_ids.append(desc.get('id'))
+
+                    _LOGGER.info("Updating selected_waste_types: old IDs=%s, new IDs=%s",
+                                old_selected_ids, new_selected_ids)
+
+                    # Update both data and options
+                    hass.config_entries.async_update_entry(
+                        entry,
+                        data={
+                            **entry.data,
+                            CONF_SELECTED_WASTE_TYPES: new_selected_ids,
+                        },
+                        options={
+                            **entry.options,
+                            CONF_SELECTED_WASTE_TYPES: new_selected_ids,
+                        }
+                    )
 
             _LOGGER.info("Data update successful: %d waste types, %d total dates",
                         len(schedule),
