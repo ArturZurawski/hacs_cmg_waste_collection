@@ -12,8 +12,13 @@ from .api import WasteCollectionAPI
 from .const import (
     CONF_COMMUNITY_ID,
     CONF_DEBUG_LOGGING,
+    CONF_GROUP_NAME,
     CONF_NUMBER,
+    CONF_PERIOD_CHANGE_DATE,
+    CONF_PERIOD_END,
     CONF_PERIOD_ID,
+    CONF_PERIOD_START,
+    CONF_STREET_CHOOSED_IDS,
     CONF_STREET_ID,
     CONF_STREET_NAME,
     CONF_TOWN_ID,
@@ -80,7 +85,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                          current_period['startDate'],
                          current_period['endDate'])
 
-            # Log if period changed
+            # Check if period changed - if so, we need to re-fetch building type
+            current_street_id = street_id
             if period_id != entry.data.get(CONF_PERIOD_ID):
                 _LOGGER.info(
                     "Schedule period changed from %s to %s (%s - %s)",
@@ -90,11 +96,93 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                     current_period['endDate']
                 )
 
+                # Re-fetch street data for new period
+                try:
+                    _LOGGER.debug("Re-fetching street and building type data for new period")
+
+                    # Get streets for the new period
+                    streets = await hass.async_add_executor_job(
+                        api.get_streets,
+                        town_id,
+                        period_id
+                    )
+
+                    if not streets:
+                        _LOGGER.warning("No streets found for new period, using old street_id")
+                    else:
+                        # Find our street by name
+                        matching_street = None
+                        for s in streets:
+                            if s.get('name') == street_name:
+                                matching_street = s
+                                break
+
+                        if not matching_street:
+                            _LOGGER.warning("Street '%s' not found in new period, using old street_id", street_name)
+                        else:
+                            street_choosed_ids = matching_street.get('choosedStreetIds')
+                            _LOGGER.debug("Found street '%s' with choosedStreetIds=%s", street_name, street_choosed_ids)
+
+                            # Get building groups for new period
+                            groups, group_id, group_streets = await hass.async_add_executor_job(
+                                api.get_building_groups,
+                                street_choosed_ids,
+                                number,
+                                town_id,
+                                street_name,
+                                period_id
+                            )
+
+                            # Determine new street_id based on building type
+                            if not groups:
+                                # No groups - single building type street
+                                if group_streets and len(group_streets) > 0:
+                                    current_street_id = group_streets[0]['id']
+                                    _LOGGER.info("New period: single building type, street_id=%s", current_street_id)
+                                else:
+                                    current_street_id = street_choosed_ids
+                                    _LOGGER.info("New period: using choosedStreetIds=%s as street_id", current_street_id)
+                            else:
+                                # Multiple groups - find the one matching our saved group name
+                                group_name = entry.data.get(CONF_GROUP_NAME)
+                                matching_group = None
+                                for g in groups:
+                                    if g.get('name') == group_name:
+                                        matching_group = g
+                                        break
+
+                                if matching_group:
+                                    current_street_id = matching_group['choosedStreetIds']
+                                    _LOGGER.info("New period: matched building type '%s', street_id=%s", group_name, current_street_id)
+                                else:
+                                    # Group name not found, use first group
+                                    current_street_id = groups[0]['choosedStreetIds']
+                                    _LOGGER.warning("Building type '%s' not found in new period, using first group street_id=%s", group_name, current_street_id)
+
+                            # Update entry data with new IDs
+                            hass.config_entries.async_update_entry(
+                                entry,
+                                data={
+                                    **entry.data,
+                                    CONF_PERIOD_ID: period_id,
+                                    CONF_PERIOD_START: current_period['startDate'],
+                                    CONF_PERIOD_END: current_period['endDate'],
+                                    CONF_PERIOD_CHANGE_DATE: current_period['changeDate'],
+                                    CONF_STREET_ID: current_street_id,
+                                    CONF_STREET_CHOOSED_IDS: street_choosed_ids,
+                                }
+                            )
+                            _LOGGER.info("Updated entry with new period and street data")
+
+                except Exception as err:
+                    _LOGGER.error("Error re-fetching building type for new period: %s", err, exc_info=True)
+                    _LOGGER.warning("Continuing with old street_id=%s", current_street_id)
+
             # Fetch schedule data
             result = await hass.async_add_executor_job(
                 api.update,
                 number,
-                street_id,
+                current_street_id,
                 town_id,
                 street_name,
                 period_id,

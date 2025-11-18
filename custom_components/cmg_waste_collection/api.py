@@ -1,7 +1,7 @@
 """API client for Waste Collection."""
 import logging
 from datetime import datetime
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, Tuple
 
 import requests
 
@@ -162,7 +162,7 @@ class WasteCollectionAPI:
         town_id: str,
         street_name: str,
         period_id: str
-    ) -> tuple[List[Dict[str, Any]], Optional[str], List[Dict[str, Any]]]:
+    ) -> Tuple[List[Dict[str, Any]], Optional[str], List[Dict[str, Any]]]:
         """Get building type groups for street.
 
         Returns:
@@ -247,7 +247,7 @@ class WasteCollectionAPI:
         self,
         raw_data: Dict[str, Any],
         selected_type_ids: Optional[List[str]] = None
-    ) -> tuple[Dict[str, List[datetime]], Dict[str, Dict[str, Any]]]:
+    ) -> Tuple[Dict[str, List[datetime]], Dict[str, Dict[str, Any]]]:
         """Parse schedule data into structured format."""
         schedules = raw_data.get('schedules', [])
         descriptions_list = raw_data.get('scheduleDescription', [])
@@ -370,7 +370,7 @@ class WasteCollectionAPI:
         street_name: str,
         period_id: str,
         selected_type_ids: Optional[List[str]] = None
-    ) -> tuple[Dict[str, List[datetime]], Dict[str, Dict[str, Any]]]:
+    ) -> Tuple[Dict[str, List[datetime]], Dict[str, Dict[str, Any]]]:
         """Fetch and return updated schedule."""
         try:
             _LOGGER.debug("Fetching schedule data for period_id=%s, street_id=%s, number=%s",
