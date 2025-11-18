@@ -12,8 +12,10 @@ from .api import WasteCollectionAPI
 from .const import (
     CONF_COMMUNITY_ID,
     CONF_DEBUG_LOGGING,
+    CONF_GROUP_NAME,
     CONF_NUMBER,
     CONF_PERIOD_ID,
+    CONF_STREET_CHOOSED_IDS,
     CONF_STREET_ID,
     CONF_STREET_NAME,
     CONF_TOWN_ID,
@@ -54,6 +56,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     street_name = entry.data[CONF_STREET_NAME]
     street_id = entry.data[CONF_STREET_ID]
     number = entry.data[CONF_NUMBER]
+    group_name = entry.data.get(CONF_GROUP_NAME, "")
+    street_choosed_ids = entry.data.get(CONF_STREET_CHOOSED_IDS, "")
 
     # Initialize API with debug flag
     api = WasteCollectionAPI(debug=debug_logging)
@@ -141,12 +145,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 )
 
                 # Try to find new street_id for this street and number
+                # Re-query API like during initial setup, using user's original selections
                 new_street_id = await hass.async_add_executor_job(
                     api.find_new_street_id,
                     town_id,
                     period_id,
                     street_name,
                     number,
+                    group_name,
                     current_street_id
                 )
 

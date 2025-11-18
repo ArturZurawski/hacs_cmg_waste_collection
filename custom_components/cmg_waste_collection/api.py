@@ -270,90 +270,92 @@ class WasteCollectionAPI:
         period_id: str,
         street_name: str,
         number: str,
+        group_name: str,
         old_street_id: str
     ) -> Optional[str]:
-        """Try to find new street_id for the same street and number.
+        """Try to find new street_id using same process as initial setup.
 
-        This handles cases where API changes street IDs between periods.
-        Returns new street_id if found, None otherwise.
+        Re-queries API like during initialization to find correct street_id
+        for the user's address based on their previously selected group.
+
+        Args:
+            town_id: Town ID
+            period_id: Schedule period ID
+            street_name: Street name user selected
+            number: Building number user selected
+            group_name: Building group/type user selected (e.g., "Zabudowa wielorodzinna")
+            old_street_id: Current street_id that may be incorrect
+
+        Returns:
+            New street_id if found, None otherwise
         """
         try:
             _LOGGER.info(
-                "Attempting to find new street_id for street='%s', number='%s', old_id='%s'",
-                street_name, number, old_street_id
+                "Re-querying API for street='%s', number='%s', group='%s', old_id='%s'",
+                street_name, number, group_name, old_street_id
             )
 
-            # Get all streets for this town
-            streets = self.get_streets(town_id, period_id)
+            # Step 1: Get fresh street list for this town and period
+            streets_list = self.get_streets(town_id, period_id)
 
-            # Find streets matching our street name
-            matching_streets = [
-                s for s in streets
-                if s.get('name', '').lower() == street_name.lower()
-            ]
+            # Step 2: Find our street by name
+            matching_street = None
+            for street in streets_list:
+                if street.get('name', '').lower() == street_name.lower():
+                    # Prefer general streets (no specific numbers) over specific buildings
+                    if not street.get('numbers', ''):
+                        matching_street = street
+                        break
 
-            if not matching_streets:
-                _LOGGER.warning("No streets found matching name '%s'", street_name)
+            if not matching_street:
+                _LOGGER.warning("No matching street found for '%s'", street_name)
                 return None
 
-            _LOGGER.debug("Found %d streets matching name '%s'",
-                         len(matching_streets), street_name)
+            choosed_street_ids = matching_street.get('choosedStreetIds')
+            if not choosed_street_ids:
+                _LOGGER.warning("No choosedStreetIds for street '%s'", street_name)
+                return None
 
-            # Separate streets into two categories:
-            # 1. General streets (no specific building numbers - for residential areas)
-            # 2. Specific streets (with specific numbers - for companies/institutions)
-            general_streets = []
-            specific_streets = []
+            _LOGGER.debug("Found street with choosedStreetIds: %s", choosed_street_ids)
 
-            for street in matching_streets:
-                numbers = street.get('numbers', '')
-                # If numbers field is empty, it's a general residential street
-                if not numbers or numbers == '':
-                    general_streets.append(street)
-                else:
-                    specific_streets.append(street)
-
-            _LOGGER.debug("Found %d general streets and %d specific streets",
-                         len(general_streets), len(specific_streets))
-
-            # Try general streets first (these are for regular residential buildings)
-            for street in general_streets:
-                test_street_id = street.get('id')
-                if not test_street_id:
-                    continue
-
-                _LOGGER.debug("Testing general street_id '%s' (%s)",
-                             test_street_id, street.get('schedulegroup', 'unknown'))
-
-                try:
-                    # Try to get waste types for this street_id
-                    test_data = self.get_waste_types(
-                        number,
-                        test_street_id,
-                        town_id,
-                        street_name,
-                        period_id
-                    )
-
-                    # If we got schedule descriptions, this street_id works!
-                    if test_data.get('scheduleDescription'):
-                        _LOGGER.info(
-                            "Found working street_id '%s' (%s) for %s %s",
-                            test_street_id, street.get('schedulegroup', 'unknown'),
-                            street_name, number
-                        )
-                        return test_street_id
-
-                except Exception as test_err:
-                    _LOGGER.debug("Street ID '%s' didn't work: %s", test_street_id, test_err)
-                    continue
-
-            # If no general street worked, warn and return None
-            # We don't try specific streets because those are for different buildings
-            _LOGGER.warning(
-                "Could not find working general street_id for %s %s (tried %d general streets, %d specific streets ignored)",
-                street_name, number, len(general_streets), len(specific_streets)
+            # Step 3: Get building groups (same as during initial setup)
+            groups, group_id, streets = self.get_building_groups(
+                choosed_street_ids,
+                number,
+                town_id,
+                street_name,
+                period_id
             )
+
+            # Step 4: Find the group that matches what user originally selected
+            if groups:
+                _LOGGER.debug("Found %d building groups, looking for '%s'", len(groups), group_name)
+                for group in groups:
+                    if group.get('name', '').lower() == group_name.lower():
+                        new_street_id = group.get('choosedStreetIds')
+                        if new_street_id:
+                            _LOGGER.info(
+                                "Found matching group '%s' with street_id '%s' (was '%s')",
+                                group_name, new_street_id, old_street_id
+                            )
+                            return new_street_id
+
+                # Group name didn't match - try first group as fallback
+                _LOGGER.warning("Group '%s' not found, using first group", group_name)
+                if groups[0].get('choosedStreetIds'):
+                    return groups[0]['choosedStreetIds']
+
+            # No groups - use street ID from streets array (single building type)
+            if streets and len(streets) > 0:
+                new_street_id = streets[0].get('id')
+                if new_street_id:
+                    _LOGGER.info(
+                        "No groups, using street_id '%s' from streets[0] (was '%s')",
+                        new_street_id, old_street_id
+                    )
+                    return new_street_id
+
+            _LOGGER.warning("Could not find new street_id for %s %s", street_name, number)
             return None
 
         except Exception as err:
