@@ -266,48 +266,60 @@ class WasteCollectionAPI:
             _LOGGER.debug("Found %d streets matching name '%s'",
                          len(matching_streets), street_name)
 
-            # Try each matching street ID with get_building_groups to see if it returns data
+            # Separate streets into two categories:
+            # 1. General streets (no specific building numbers - for residential areas)
+            # 2. Specific streets (with specific numbers - for companies/institutions)
+            general_streets = []
+            specific_streets = []
+
             for street in matching_streets:
+                numbers = street.get('numbers', '')
+                # If numbers field is empty, it's a general residential street
+                if not numbers or numbers == '':
+                    general_streets.append(street)
+                else:
+                    specific_streets.append(street)
+
+            _LOGGER.debug("Found %d general streets and %d specific streets",
+                         len(general_streets), len(specific_streets))
+
+            # Try general streets first (these are for regular residential buildings)
+            for street in general_streets:
                 test_street_id = street.get('id')
                 if not test_street_id:
                     continue
 
+                _LOGGER.debug("Testing general street_id '%s' (%s)",
+                             test_street_id, street.get('schedulegroup', 'unknown'))
+
                 try:
-                    # Test if this street_id returns any groups/data
-                    groups, group_id, group_streets = self.get_building_groups(
-                        test_street_id,
+                    # Try to get waste types for this street_id
+                    test_data = self.get_waste_types(
                         number,
+                        test_street_id,
                         town_id,
                         street_name,
                         period_id
                     )
 
-                    # If we got streets back, check if this number exists
-                    if group_streets:
-                        # Try to get waste types for this street_id
-                        test_data = self.get_waste_types(
-                            number,
-                            test_street_id,
-                            town_id,
-                            street_name,
-                            period_id
+                    # If we got schedule descriptions, this street_id works!
+                    if test_data.get('scheduleDescription'):
+                        _LOGGER.info(
+                            "Found working street_id '%s' (%s) for %s %s",
+                            test_street_id, street.get('schedulegroup', 'unknown'),
+                            street_name, number
                         )
-
-                        # If we got schedule descriptions, this street_id works!
-                        if test_data.get('scheduleDescription'):
-                            _LOGGER.info(
-                                "Found working street_id '%s' (was '%s') for %s %s",
-                                test_street_id, old_street_id, street_name, number
-                            )
-                            return test_street_id
+                        return test_street_id
 
                 except Exception as test_err:
                     _LOGGER.debug("Street ID '%s' didn't work: %s", test_street_id, test_err)
                     continue
 
+            # If no general street worked, warn and return None
+            # We don't try specific streets because those are for different buildings
             _LOGGER.warning(
-                "Could not find working street_id for %s %s (tried %d candidates)",
-                street_name, number, len(matching_streets)
+                "Could not find working general street_id for %s %s (tried %d general streets, %d specific streets ignored)",
+                street_name, number, len(general_streets), len(specific_streets)
             )
             return None
 
