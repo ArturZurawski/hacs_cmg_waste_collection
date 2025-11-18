@@ -85,21 +85,28 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                          current_period['startDate'],
                          current_period['endDate'])
 
-            # Check if period changed - if so, we need to re-fetch building type
+            # Check if period changed OR manual refresh requested - if so, we need to re-fetch building type
             # Always read current street_id from entry.data (it may have been updated)
             current_street_id = entry.data[CONF_STREET_ID]
             period_changed = period_id != entry.data.get(CONF_PERIOD_ID)
+            force_refresh = hass.data[DOMAIN][entry.entry_id].get("force_building_type_refresh", False)
 
-            if period_changed:
-                _LOGGER.info(
-                    "Schedule period changed from %s to %s (%s - %s)",
-                    entry.data.get(CONF_PERIOD_ID),
-                    period_id,
-                    current_period['startDate'],
-                    current_period['endDate']
-                )
+            if period_changed or force_refresh:
+                if force_refresh:
+                    _LOGGER.info("Manual refresh requested - re-fetching building type and street data")
+                    # Reset the flag
+                    hass.data[DOMAIN][entry.entry_id]["force_building_type_refresh"] = False
 
-                # Re-fetch street data for new period
+                if period_changed:
+                    _LOGGER.info(
+                        "Schedule period changed from %s to %s (%s - %s)",
+                        entry.data.get(CONF_PERIOD_ID),
+                        period_id,
+                        current_period['startDate'],
+                        current_period['endDate']
+                    )
+
+                # Re-fetch street data for new period (or for manual refresh)
                 try:
                     _LOGGER.debug("Re-fetching street and building type data for new period")
 
@@ -206,8 +213,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 # Don't raise error immediately - coordinator will use cached data
                 raise UpdateFailed("Empty data received from API - period may not have data yet")
 
-            # If period changed, update selected_waste_types with new IDs
-            if period_changed:
+            # If period changed or manual refresh, update selected_waste_types with new IDs
+            if period_changed or force_refresh:
                 old_selected_ids = entry.options.get(
                     CONF_SELECTED_WASTE_TYPES,
                     entry.data.get(CONF_SELECTED_WASTE_TYPES, [])
@@ -270,6 +277,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         "coordinator": coordinator,
         "api": api,
         "sensor_list": [],  # Will be populated when sensors are created
+        "force_building_type_refresh": False,  # Flag for manual refresh
     }
 
     # Fetch initial data

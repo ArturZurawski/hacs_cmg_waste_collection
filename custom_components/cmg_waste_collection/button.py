@@ -55,8 +55,10 @@ class WasteCollectionRefreshButton(CoordinatorEntity, ButtonEntity):
         self._attr_device_info = get_device_info(config_entry)
 
     async def async_press(self) -> None:
-        """Handle the button press - trigger coordinator refresh."""
+        """Handle the button press - trigger coordinator refresh with full building type re-fetch."""
         _LOGGER.info("Manual refresh triggered for waste collection schedule")
+        # Set flag to force re-fetching building type and street data
+        self.hass.data[DOMAIN][self._config_entry.entry_id]["force_building_type_refresh"] = True
         await self.coordinator.async_request_refresh()
 
     @property
