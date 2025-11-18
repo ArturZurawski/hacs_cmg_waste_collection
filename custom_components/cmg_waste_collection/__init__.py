@@ -64,6 +64,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         try:
             _LOGGER.debug("Starting data update")
 
+            # Get current street_id from config (may be updated if API changes IDs)
+            current_street_id = entry.data[CONF_STREET_ID]
+
             # Always get current period to ensure we use the latest one
             current_period = await hass.async_add_executor_job(
                 api.get_current_period,
@@ -95,7 +98,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             result = await hass.async_add_executor_job(
                 api.update,
                 number,
-                street_id,
+                current_street_id,
                 town_id,
                 street_name,
                 period_id,
@@ -114,7 +117,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             if not schedule or not descriptions:
                 _LOGGER.warning(
                     "Empty schedule/descriptions for street_id=%s. API may have changed street IDs.",
-                    street_id
+                    current_street_id
                 )
 
                 # Try to find new street_id for this street and number
@@ -124,13 +127,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                     period_id,
                     street_name,
                     number,
-                    street_id
+                    current_street_id
                 )
 
-                if new_street_id and new_street_id != street_id:
+                if new_street_id and new_street_id != current_street_id:
                     _LOGGER.info(
                         "Found new street_id '%s' (was '%s'), updating configuration",
-                        new_street_id, street_id
+                        new_street_id, current_street_id
                     )
 
                     # Update config_entry with new street_id
@@ -139,11 +142,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                     hass.config_entries.async_update_entry(entry, data=new_data)
 
                     # Retry with new street_id
-                    street_id = new_street_id
                     result = await hass.async_add_executor_job(
                         api.update,
                         number,
-                        street_id,
+                        new_street_id,
                         town_id,
                         street_name,
                         period_id,
@@ -152,11 +154,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
                     if result and isinstance(result, tuple) and len(result) == 2:
                         schedule, descriptions = result
+                        current_street_id = new_street_id
 
             if not schedule or not descriptions:
                 _LOGGER.error(
                     "No waste collection data available for %s %s (street_id=%s, period=%s)",
-                    street_name, number, street_id, period_id
+                    street_name, number, current_street_id, period_id
                 )
                 _LOGGER.error(
                     "You may need to reconfigure this integration. "
