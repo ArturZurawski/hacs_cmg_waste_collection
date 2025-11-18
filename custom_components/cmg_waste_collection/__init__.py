@@ -88,7 +88,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             # Check if period changed - if so, we need to re-fetch building type
             # Always read current street_id from entry.data (it may have been updated)
             current_street_id = entry.data[CONF_STREET_ID]
-            if period_id != entry.data.get(CONF_PERIOD_ID):
+            period_changed = period_id != entry.data.get(CONF_PERIOD_ID)
+
+            if period_changed:
                 _LOGGER.info(
                     "Schedule period changed from %s to %s (%s - %s)",
                     entry.data.get(CONF_PERIOD_ID),
@@ -160,7 +162,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                                     current_street_id = groups[0]['choosedStreetIds']
                                     _LOGGER.warning("Building type '%s' not found in new period, using first group street_id=%s", group_name, current_street_id)
 
-                            # Update entry data with new IDs
+                            # Update entry data with new IDs (but not selected_waste_types yet - we need new data first)
                             hass.config_entries.async_update_entry(
                                 entry,
                                 data={
@@ -205,7 +207,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 raise UpdateFailed("Empty data received from API - period may not have data yet")
 
             # If period changed, update selected_waste_types with new IDs
-            if period_id != entry.data.get(CONF_PERIOD_ID):
+            if period_changed:
                 old_selected_ids = entry.options.get(
                     CONF_SELECTED_WASTE_TYPES,
                     entry.data.get(CONF_SELECTED_WASTE_TYPES, [])
