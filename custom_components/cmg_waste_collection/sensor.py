@@ -287,12 +287,20 @@ class TodayCollectionSensor(CoordinatorEntity, SensorEntity):
         """Initialize the sensor."""
         super().__init__(coordinator)
         self._config_entry = config_entry
-        self._selected_type_ids = selected_type_ids
+        # Don't store selected_type_ids - read dynamically from config_entry
         self._attr_name = "Today collection"
         self._attr_unique_id = f"{config_entry.entry_id}_today_collection"
         self._attr_icon = "mdi:calendar-today"
         self._attr_has_entity_name = True
         self._attr_device_info = get_device_info(config_entry)
+
+    @property
+    def _selected_type_ids(self) -> List[str]:
+        """Get current selected type IDs from config entry."""
+        return self._config_entry.options.get(
+            CONF_SELECTED_WASTE_TYPES,
+            self._config_entry.data.get(CONF_SELECTED_WASTE_TYPES, [])
+        )
 
     @property
     def native_value(self) -> str:
@@ -357,12 +365,20 @@ class TomorrowCollectionSensor(CoordinatorEntity, SensorEntity):
         """Initialize the sensor."""
         super().__init__(coordinator)
         self._config_entry = config_entry
-        self._selected_type_ids = selected_type_ids
+        # Don't store selected_type_ids - read dynamically from config_entry
         self._attr_name = "Tomorrow collection"
         self._attr_unique_id = f"{config_entry.entry_id}_tomorrow_collection"
         self._attr_icon = "mdi:calendar"
         self._attr_has_entity_name = True
         self._attr_device_info = get_device_info(config_entry)
+
+    @property
+    def _selected_type_ids(self) -> List[str]:
+        """Get current selected type IDs from config entry."""
+        return self._config_entry.options.get(
+            CONF_SELECTED_WASTE_TYPES,
+            self._config_entry.data.get(CONF_SELECTED_WASTE_TYPES, [])
+        )
 
     @property
     def native_value(self) -> str:
@@ -428,12 +444,20 @@ class NextCollectionSensor(CoordinatorEntity, SensorEntity):
         """Initialize the sensor."""
         super().__init__(coordinator)
         self._config_entry = config_entry
-        self._selected_type_ids = selected_type_ids
+        # Don't store selected_type_ids - read dynamically from config_entry
         self._attr_name = "Next collection"
         self._attr_unique_id = f"{config_entry.entry_id}_next_collection"
         self._attr_icon = "mdi:calendar-multiselect"
         self._attr_has_entity_name = True
         self._attr_device_info = get_device_info(config_entry)
+
+    @property
+    def _selected_type_ids(self) -> List[str]:
+        """Get current selected type IDs from config entry."""
+        return self._config_entry.options.get(
+            CONF_SELECTED_WASTE_TYPES,
+            self._config_entry.data.get(CONF_SELECTED_WASTE_TYPES, [])
+        )
 
     @property
     def native_value(self) -> Optional[str]:

@@ -236,21 +236,22 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                         if waste_name in selected_names:
                             new_selected_ids.append(desc.get('id'))
 
-                    _LOGGER.info("Updating selected_waste_types: old IDs=%s, new IDs=%s",
-                                old_selected_ids, new_selected_ids)
+                    if new_selected_ids != old_selected_ids:
+                        _LOGGER.info("Updating selected_waste_types: old IDs=%s, new IDs=%s",
+                                    old_selected_ids, new_selected_ids)
 
-                    # Update both data and options
-                    hass.config_entries.async_update_entry(
-                        entry,
-                        data={
-                            **entry.data,
-                            CONF_SELECTED_WASTE_TYPES: new_selected_ids,
-                        },
-                        options={
-                            **entry.options,
-                            CONF_SELECTED_WASTE_TYPES: new_selected_ids,
-                        }
-                    )
+                        # Update both data and options (sensors will read dynamically)
+                        hass.config_entries.async_update_entry(
+                            entry,
+                            data={
+                                **entry.data,
+                                CONF_SELECTED_WASTE_TYPES: new_selected_ids,
+                            },
+                            options={
+                                **entry.options,
+                                CONF_SELECTED_WASTE_TYPES: new_selected_ids,
+                            }
+                        )
 
             _LOGGER.info("Data update successful: %d waste types, %d total dates",
                         len(schedule),
