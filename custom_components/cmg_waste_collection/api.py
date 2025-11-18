@@ -430,9 +430,10 @@ class WasteCollectionAPI:
                                   len(self._schedule_cache))
                     return self._schedule_cache, self._descriptions_cache
 
-                # No cached data available - this is a real problem
-                _LOGGER.error("Empty schedule or descriptions after parsing and no cached data available")
-                raise Exception("No waste types found in schedule")
+                # No cached data available - return empty data instead of raising exception
+                # This allows the caller (__init__.py) to try fallback to previous period
+                _LOGGER.warning("Empty schedule or descriptions after parsing and no cached data available")
+                return {}, {}
 
             _LOGGER.debug("Successfully parsed schedule: %d waste types", len(schedule))
             return schedule, descriptions
@@ -444,5 +445,6 @@ class WasteCollectionAPI:
                 _LOGGER.warning("API error, using cached schedule data (%d waste types)",
                               len(self._schedule_cache))
                 return self._schedule_cache, self._descriptions_cache
-            _LOGGER.error("No cached data available, re-raising exception")
-            raise
+            # Return empty data instead of raising - let caller handle fallback
+            _LOGGER.warning("No cached data available, returning empty data")
+            return {}, {}
