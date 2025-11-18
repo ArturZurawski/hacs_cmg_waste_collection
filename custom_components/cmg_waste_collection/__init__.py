@@ -82,8 +82,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
             # Log if period changed
             old_period_id = entry.data.get(CONF_PERIOD_ID)
-            period_changed = period_id != old_period_id
-            if period_changed:
+            if period_id != old_period_id:
                 _LOGGER.info(
                     "Schedule period changed from %s to %s (%s - %s)",
                     old_period_id,
@@ -110,42 +109,61 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
             schedule, descriptions = result
 
-            # If new period has no data, try the old period as fallback
-            if (not schedule or not descriptions) and period_changed and old_period_id:
+            # If API returns empty data, try to find new street_id
+            # (API sometimes changes street IDs between periods)
+            if not schedule or not descriptions:
                 _LOGGER.warning(
-                    "New period %s has no data, trying previous period %s as fallback",
-                    period_id,
-                    old_period_id
+                    "Empty schedule/descriptions for street_id=%s. API may have changed street IDs.",
+                    street_id
                 )
-                try:
+
+                # Try to find new street_id for this street and number
+                new_street_id = await hass.async_add_executor_job(
+                    api.find_new_street_id,
+                    town_id,
+                    period_id,
+                    street_name,
+                    number,
+                    street_id
+                )
+
+                if new_street_id and new_street_id != street_id:
+                    _LOGGER.info(
+                        "Found new street_id '%s' (was '%s'), updating configuration",
+                        new_street_id, street_id
+                    )
+
+                    # Update config_entry with new street_id
+                    new_data = dict(entry.data)
+                    new_data[CONF_STREET_ID] = new_street_id
+                    hass.config_entries.async_update_entry(entry, data=new_data)
+
+                    # Retry with new street_id
+                    street_id = new_street_id
                     result = await hass.async_add_executor_job(
                         api.update,
                         number,
                         street_id,
                         town_id,
                         street_name,
-                        old_period_id,
+                        period_id,
                         None,
                     )
+
                     if result and isinstance(result, tuple) and len(result) == 2:
                         schedule, descriptions = result
-                        if schedule and descriptions:
-                            _LOGGER.info(
-                                "Successfully loaded data from previous period %s: %d waste types",
-                                old_period_id,
-                                len(schedule)
-                            )
-                            # Continue using old period for now
-                            period_id = old_period_id
-                except Exception as fallback_err:
-                    _LOGGER.warning("Failed to load old period %s: %s", old_period_id, fallback_err)
 
             if not schedule or not descriptions:
-                _LOGGER.warning("Empty schedule or descriptions: schedule=%s, descriptions=%s",
-                            bool(schedule), bool(descriptions))
-                _LOGGER.warning("Period %s may not have data yet, keeping old data if available", period_id)
+                _LOGGER.error(
+                    "No waste collection data available for %s %s (street_id=%s, period=%s)",
+                    street_name, number, street_id, period_id
+                )
+                _LOGGER.error(
+                    "You may need to reconfigure this integration. "
+                    "Go to Settings → Devices & Services → CMG Waste Collection and delete/re-add."
+                )
                 # Don't raise error immediately - coordinator will use cached data
-                raise UpdateFailed("Empty data received from API - period may not have data yet")
+                raise UpdateFailed("No waste collection data available - reconfiguration may be needed")
 
             _LOGGER.info("Data update successful: %d waste types, %d total dates",
                         len(schedule),

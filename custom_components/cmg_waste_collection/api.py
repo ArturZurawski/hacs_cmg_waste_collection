@@ -231,6 +231,90 @@ class WasteCollectionAPI:
             _LOGGER.error("Error fetching building groups: %s", err)
             raise
 
+    def find_new_street_id(
+        self,
+        town_id: str,
+        period_id: str,
+        street_name: str,
+        number: str,
+        old_street_id: str
+    ) -> Optional[str]:
+        """Try to find new street_id for the same street and number.
+
+        This handles cases where API changes street IDs between periods.
+        Returns new street_id if found, None otherwise.
+        """
+        try:
+            _LOGGER.info(
+                "Attempting to find new street_id for street='%s', number='%s', old_id='%s'",
+                street_name, number, old_street_id
+            )
+
+            # Get all streets for this town
+            streets = self.get_streets(town_id, period_id)
+
+            # Find streets matching our street name
+            matching_streets = [
+                s for s in streets
+                if s.get('name', '').lower() == street_name.lower()
+            ]
+
+            if not matching_streets:
+                _LOGGER.warning("No streets found matching name '%s'", street_name)
+                return None
+
+            _LOGGER.debug("Found %d streets matching name '%s'",
+                         len(matching_streets), street_name)
+
+            # Try each matching street ID with get_building_groups to see if it returns data
+            for street in matching_streets:
+                test_street_id = street.get('id')
+                if not test_street_id:
+                    continue
+
+                try:
+                    # Test if this street_id returns any groups/data
+                    groups, group_id, group_streets = self.get_building_groups(
+                        test_street_id,
+                        number,
+                        town_id,
+                        street_name,
+                        period_id
+                    )
+
+                    # If we got streets back, check if this number exists
+                    if group_streets:
+                        # Try to get waste types for this street_id
+                        test_data = self.get_waste_types(
+                            number,
+                            test_street_id,
+                            town_id,
+                            street_name,
+                            period_id
+                        )
+
+                        # If we got schedule descriptions, this street_id works!
+                        if test_data.get('scheduleDescription'):
+                            _LOGGER.info(
+                                "Found working street_id '%s' (was '%s') for %s %s",
+                                test_street_id, old_street_id, street_name, number
+                            )
+                            return test_street_id
+
+                except Exception as test_err:
+                    _LOGGER.debug("Street ID '%s' didn't work: %s", test_street_id, test_err)
+                    continue
+
+            _LOGGER.warning(
+                "Could not find working street_id for %s %s (tried %d candidates)",
+                street_name, number, len(matching_streets)
+            )
+            return None
+
+        except Exception as err:
+            _LOGGER.error("Error finding new street_id: %s", err, exc_info=True)
+            return None
+
     def get_waste_types(
         self,
         number: str,
@@ -424,14 +508,14 @@ class WasteCollectionAPI:
             schedule, descriptions = result
 
             if not schedule or not descriptions:
-                # If we have cached data, use it (new period may not have data yet)
+                # If we have cached data, use it
                 if self._schedule_cache and self._descriptions_cache:
-                    _LOGGER.info("Empty schedule or descriptions after parsing - new period may not have data yet, using cached data from previous period (%d waste types)",
+                    _LOGGER.info("Empty schedule or descriptions after parsing, using cached data (%d waste types)",
                                   len(self._schedule_cache))
                     return self._schedule_cache, self._descriptions_cache
 
-                # No cached data available - return empty data instead of raising exception
-                # This allows the caller (__init__.py) to try fallback to previous period
+                # No cached data available - return empty data
+                # This signals __init__.py to try finding new street_id (API may have changed IDs)
                 _LOGGER.warning("Empty schedule or descriptions after parsing and no cached data available")
                 return {}, {}
 
@@ -445,6 +529,6 @@ class WasteCollectionAPI:
                 _LOGGER.warning("API error, using cached schedule data (%d waste types)",
                               len(self._schedule_cache))
                 return self._schedule_cache, self._descriptions_cache
-            # Return empty data instead of raising - let caller handle fallback
+            # Return empty data - let caller try to fix the issue
             _LOGGER.warning("No cached data available, returning empty data")
             return {}, {}
