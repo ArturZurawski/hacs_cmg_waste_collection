@@ -53,11 +53,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     else:
         logging.getLogger(f"custom_components.{DOMAIN}").setLevel(logging.INFO)
 
-    # Get configuration
+    # Get configuration (note: street_id may change when period changes, so we read it from entry.data each time)
     town_id = entry.data[CONF_TOWN_ID]
     community_id = entry.data[CONF_COMMUNITY_ID]
     street_name = entry.data[CONF_STREET_NAME]
-    street_id = entry.data[CONF_STREET_ID]
     number = entry.data[CONF_NUMBER]
 
     # Initialize API with debug flag
@@ -86,7 +85,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                          current_period['endDate'])
 
             # Check if period changed - if so, we need to re-fetch building type
-            current_street_id = street_id
+            # Always read current street_id from entry.data (it may have been updated)
+            current_street_id = entry.data[CONF_STREET_ID]
             if period_id != entry.data.get(CONF_PERIOD_ID):
                 _LOGGER.info(
                     "Schedule period changed from %s to %s (%s - %s)",
