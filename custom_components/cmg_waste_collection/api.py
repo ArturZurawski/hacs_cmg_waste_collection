@@ -113,23 +113,53 @@ class WasteCollectionAPI:
             periods = self.get_schedule_periods(community_id)
             today = datetime.now().date()
 
+            if self.debug:
+                _LOGGER.debug("Finding current period for date: %s", today)
+                _LOGGER.debug("Available periods: %s",
+                             [(p['id'], p['startDate'], p['endDate']) for p in periods])
+
             # Find period that contains today's date
             for period in periods:
                 start = datetime.strptime(period['startDate'], '%Y-%m-%d').date()
                 end = datetime.strptime(period['endDate'], '%Y-%m-%d').date()
 
                 if start <= today <= end:
+                    if self.debug:
+                        _LOGGER.debug("Found matching period: %s (%s - %s)",
+                                     period['id'], period['startDate'], period['endDate'])
                     return period
 
-            # If no period contains today, return the most recent one
+            # If no period contains today, find the most recent PAST period
+            # (not future period which may not have data yet)
             if periods:
-                # Sort by start date descending
-                sorted_periods = sorted(
+                past_periods = [
+                    p for p in periods
+                    if datetime.strptime(p['endDate'], '%Y-%m-%d').date() < today
+                ]
+
+                if past_periods:
+                    # Return most recent past period (highest end date)
+                    sorted_past = sorted(
+                        past_periods,
+                        key=lambda p: datetime.strptime(p['endDate'], '%Y-%m-%d'),
+                        reverse=True
+                    )
+                    if self.debug:
+                        _LOGGER.debug("No active period, using most recent past period: %s (%s - %s)",
+                                     sorted_past[0]['id'], sorted_past[0]['startDate'],
+                                     sorted_past[0]['endDate'])
+                    return sorted_past[0]
+
+                # All periods are in the future, use the earliest one
+                sorted_future = sorted(
                     periods,
-                    key=lambda p: datetime.strptime(p['startDate'], '%Y-%m-%d'),
-                    reverse=True
+                    key=lambda p: datetime.strptime(p['startDate'], '%Y-%m-%d')
                 )
-                return sorted_periods[0]
+                if self.debug:
+                    _LOGGER.debug("All periods are in future, using earliest: %s (%s - %s)",
+                                 sorted_future[0]['id'], sorted_future[0]['startDate'],
+                                 sorted_future[0]['endDate'])
+                return sorted_future[0]
 
             return None
 
