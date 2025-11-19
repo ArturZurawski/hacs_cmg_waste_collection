@@ -102,11 +102,20 @@ async def async_setup_entry(
         CONF_SELECTED_WASTE_TYPES,
         config_entry.data.get(CONF_SELECTED_WASTE_TYPES, [])
     )
+
+    _LOGGER.info("=" * 80)
+    _LOGGER.info("AGGREGATE SENSORS SETUP")
+    _LOGGER.info("config_entry.options: %s", config_entry.options)
+    _LOGGER.info("config_entry.data keys: %s", list(config_entry.data.keys()))
+    _LOGGER.info("config_entry.data.get(CONF_SELECTED_WASTE_TYPES): %s",
+                 config_entry.data.get(CONF_SELECTED_WASTE_TYPES))
     _LOGGER.info("Selected waste types for aggregate sensors: %s", selected_types)
     _LOGGER.info("Available waste type IDs from descriptions: %s",
                  {name: desc.get('id') for name, desc in descriptions.items()})
+    _LOGGER.info("=" * 80)
 
     if selected_types:
+        _LOGGER.info("Creating aggregate sensors with selected_types: %s", selected_types)
         entities.append(
             TodayCollectionSensor(coordinator, config_entry, selected_types)
         )
@@ -116,6 +125,8 @@ async def async_setup_entry(
         entities.append(
             NextCollectionSensor(coordinator, config_entry, selected_types)
         )
+    else:
+        _LOGGER.warning("NOT creating aggregate sensors - selected_types is empty!")
 
     # Create info sensors
     change_date = config_entry.data.get(CONF_PERIOD_CHANGE_DATE)
