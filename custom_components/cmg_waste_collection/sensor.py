@@ -103,20 +103,6 @@ async def async_setup_entry(
         config_entry.data.get(CONF_SELECTED_WASTE_TYPES, [])
     )
 
-    # If selected_types is empty, default to all available waste types
-    if not selected_types and descriptions:
-        selected_types = [desc.get('id') for desc in descriptions.values()]
-        _LOGGER.info("selected_waste_types was empty, defaulting to all types: %s", selected_types)
-
-        # Save to config so it persists
-        hass.config_entries.async_update_entry(
-            config_entry,
-            data={
-                **config_entry.data,
-                CONF_SELECTED_WASTE_TYPES: selected_types,
-            }
-        )
-
     if selected_types:
         entities.append(
             TodayCollectionSensor(coordinator, config_entry, selected_types)
@@ -129,7 +115,7 @@ async def async_setup_entry(
         )
         _LOGGER.info("Created aggregate sensors with %d selected waste types", len(selected_types))
     else:
-        _LOGGER.warning("NOT creating aggregate sensors - no waste types available!")
+        _LOGGER.warning("NOT creating aggregate sensors - no waste types selected. Please configure waste types in integration options.")
 
     # Create info sensors
     change_date = config_entry.data.get(CONF_PERIOD_CHANGE_DATE)
@@ -140,6 +126,10 @@ async def async_setup_entry(
 
     entities.append(
         LastUpdateSensor(coordinator, config_entry)
+    )
+
+    entities.append(
+        ConfigurationStatusSensor(config_entry)
     )
 
     if entities:
@@ -674,4 +664,43 @@ class LastUpdateSensor(CoordinatorEntity, SensorEntity):
             ATTR_STREET_ID: self._config_entry.data.get(CONF_STREET_ID),
             "street_name": self._config_entry.data.get(CONF_STREET_NAME),
             "number": self._config_entry.data.get(CONF_NUMBER),
+        }
+
+
+class ConfigurationStatusSensor(SensorEntity):
+    """Sensor showing configuration status of waste types selection."""
+
+    def __init__(self, config_entry: ConfigEntry) -> None:
+        """Initialize the sensor."""
+        self._config_entry = config_entry
+        self._attr_name = "Configuration status"
+        self._attr_unique_id = f"{config_entry.entry_id}_configuration_status"
+        self._attr_icon = "mdi:cog"
+        self._attr_has_entity_name = True
+        self._attr_device_info = get_device_info(config_entry)
+        self._attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    @property
+    def native_value(self) -> str:
+        """Return the state of the sensor."""
+        selected_types = self._config_entry.options.get(
+            CONF_SELECTED_WASTE_TYPES,
+            self._config_entry.data.get(CONF_SELECTED_WASTE_TYPES, [])
+        )
+
+        if not selected_types:
+            return "not_selected"
+        return "configured"
+
+    @property
+    def extra_state_attributes(self) -> Dict[str, Any]:
+        """Return additional attributes."""
+        selected_types = self._config_entry.options.get(
+            CONF_SELECTED_WASTE_TYPES,
+            self._config_entry.data.get(CONF_SELECTED_WASTE_TYPES, [])
+        )
+
+        return {
+            "selected_count": len(selected_types),
+            "selected_type_ids": selected_types,
         }
