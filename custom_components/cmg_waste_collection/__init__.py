@@ -220,6 +220,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                     entry.data.get(CONF_SELECTED_WASTE_TYPES, [])
                 )
 
+                new_selected_ids = []
+
                 if old_selected_ids:
                     # Get old descriptions to map old ID -> waste name
                     old_data = coordinator.data
@@ -231,27 +233,32 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
                     # Map selected waste names to new IDs
                     selected_names = [old_id_to_name.get(id) for id in old_selected_ids if id in old_id_to_name]
-                    new_selected_ids = []
                     for waste_name, desc in descriptions.items():
                         if waste_name in selected_names:
                             new_selected_ids.append(desc.get('id'))
 
-                    if new_selected_ids != old_selected_ids:
-                        _LOGGER.info("Updating selected_waste_types: old IDs=%s, new IDs=%s",
-                                    old_selected_ids, new_selected_ids)
+                    _LOGGER.debug("Remapped %d selected types to new period", len(new_selected_ids))
+                else:
+                    # If old list was empty, default to all available types
+                    new_selected_ids = [desc.get('id') for desc in descriptions.values()]
+                    _LOGGER.info("selected_waste_types was empty, defaulting to all %d types", len(new_selected_ids))
 
-                        # Update both data and options (sensors will read dynamically)
-                        hass.config_entries.async_update_entry(
-                            entry,
-                            data={
-                                **entry.data,
-                                CONF_SELECTED_WASTE_TYPES: new_selected_ids,
-                            },
-                            options={
-                                **entry.options,
-                                CONF_SELECTED_WASTE_TYPES: new_selected_ids,
-                            }
-                        )
+                if new_selected_ids != old_selected_ids:
+                    _LOGGER.info("Updating selected_waste_types from %d to %d IDs",
+                                len(old_selected_ids), len(new_selected_ids))
+
+                    # Update both data and options (sensors will read dynamically)
+                    hass.config_entries.async_update_entry(
+                        entry,
+                        data={
+                            **entry.data,
+                            CONF_SELECTED_WASTE_TYPES: new_selected_ids,
+                        },
+                        options={
+                            **entry.options,
+                            CONF_SELECTED_WASTE_TYPES: new_selected_ids,
+                        }
+                    )
 
             _LOGGER.info("Data update successful: %d waste types, %d total dates",
                         len(schedule),

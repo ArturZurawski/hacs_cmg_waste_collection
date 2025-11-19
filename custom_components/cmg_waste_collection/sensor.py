@@ -103,19 +103,21 @@ async def async_setup_entry(
         config_entry.data.get(CONF_SELECTED_WASTE_TYPES, [])
     )
 
-    _LOGGER.info("=" * 80)
-    _LOGGER.info("AGGREGATE SENSORS SETUP")
-    _LOGGER.info("config_entry.options: %s", config_entry.options)
-    _LOGGER.info("config_entry.data keys: %s", list(config_entry.data.keys()))
-    _LOGGER.info("config_entry.data.get(CONF_SELECTED_WASTE_TYPES): %s",
-                 config_entry.data.get(CONF_SELECTED_WASTE_TYPES))
-    _LOGGER.info("Selected waste types for aggregate sensors: %s", selected_types)
-    _LOGGER.info("Available waste type IDs from descriptions: %s",
-                 {name: desc.get('id') for name, desc in descriptions.items()})
-    _LOGGER.info("=" * 80)
+    # If selected_types is empty, default to all available waste types
+    if not selected_types and descriptions:
+        selected_types = [desc.get('id') for desc in descriptions.values()]
+        _LOGGER.info("selected_waste_types was empty, defaulting to all types: %s", selected_types)
+
+        # Save to config so it persists
+        hass.config_entries.async_update_entry(
+            config_entry,
+            data={
+                **config_entry.data,
+                CONF_SELECTED_WASTE_TYPES: selected_types,
+            }
+        )
 
     if selected_types:
-        _LOGGER.info("Creating aggregate sensors with selected_types: %s", selected_types)
         entities.append(
             TodayCollectionSensor(coordinator, config_entry, selected_types)
         )
@@ -125,8 +127,9 @@ async def async_setup_entry(
         entities.append(
             NextCollectionSensor(coordinator, config_entry, selected_types)
         )
+        _LOGGER.info("Created aggregate sensors with %d selected waste types", len(selected_types))
     else:
-        _LOGGER.warning("NOT creating aggregate sensors - selected_types is empty!")
+        _LOGGER.warning("NOT creating aggregate sensors - no waste types available!")
 
     # Create info sensors
     change_date = config_entry.data.get(CONF_PERIOD_CHANGE_DATE)
@@ -469,12 +472,10 @@ class NextCollectionSensor(CoordinatorEntity, SensorEntity):
     @property
     def _selected_type_ids(self) -> List[str]:
         """Get current selected type IDs from config entry."""
-        selected = self._config_entry.options.get(
+        return self._config_entry.options.get(
             CONF_SELECTED_WASTE_TYPES,
             self._config_entry.data.get(CONF_SELECTED_WASTE_TYPES, [])
         )
-        _LOGGER.debug("Next collection: _selected_type_ids property returns: %s", selected)
-        return selected
 
     @property
     def native_value(self) -> Optional[str]:
@@ -522,16 +523,11 @@ class NextCollectionSensor(CoordinatorEntity, SensorEntity):
     def _get_next_collection(self) -> Optional[Dict[str, Any]]:
         """Get next collection info."""
         if not self.coordinator.data:
-            _LOGGER.debug("Next collection: No coordinator data")
             return None
 
         schedule, descriptions = self.coordinator.data
         today = dt_util.now().date()
-
         selected_ids = self._selected_type_ids
-        _LOGGER.debug("Next collection: selected_type_ids=%s", selected_ids)
-        _LOGGER.debug("Next collection: available waste types and IDs: %s",
-                     {name: desc.get('id') for name, desc in descriptions.items()})
 
         future_collections = []
 
@@ -539,21 +535,17 @@ class NextCollectionSensor(CoordinatorEntity, SensorEntity):
             desc = descriptions.get(waste_type, {})
             waste_id = desc.get('id')
             if waste_id not in selected_ids:
-                _LOGGER.debug("Next collection: Skipping '%s' (ID=%s) - not in selected", waste_type, waste_id)
                 continue
 
             future_dates = [d for d in dates if d.date() >= today]
             if future_dates:
-                _LOGGER.debug("Next collection: Including '%s' (ID=%s), next date=%s",
-                             waste_type, waste_id, future_dates[0])
                 future_collections.append({
                     'type': waste_type,
                     'date': future_dates[0]
                 })
 
         if not future_collections:
-            _LOGGER.warning("Next collection: No future collections found! selected_ids=%s, available_ids=%s",
-                           selected_ids, list(desc.get('id') for desc in descriptions.values()))
+            _LOGGER.warning("No future collections found for selected waste types")
             return None
 
         future_collections.sort(key=lambda x: x['date'])
