@@ -505,26 +505,38 @@ class NextCollectionSensor(CoordinatorEntity, SensorEntity):
     def _get_next_collection(self) -> Optional[Dict[str, Any]]:
         """Get next collection info."""
         if not self.coordinator.data:
+            _LOGGER.debug("Next collection: No coordinator data")
             return None
 
         schedule, descriptions = self.coordinator.data
         today = dt_util.now().date()
 
+        selected_ids = self._selected_type_ids
+        _LOGGER.debug("Next collection: selected_type_ids=%s", selected_ids)
+        _LOGGER.debug("Next collection: available waste types and IDs: %s",
+                     {name: desc.get('id') for name, desc in descriptions.items()})
+
         future_collections = []
 
         for waste_type, dates in schedule.items():
             desc = descriptions.get(waste_type, {})
-            if desc.get('id') not in self._selected_type_ids:
+            waste_id = desc.get('id')
+            if waste_id not in selected_ids:
+                _LOGGER.debug("Next collection: Skipping '%s' (ID=%s) - not in selected", waste_type, waste_id)
                 continue
 
             future_dates = [d for d in dates if d.date() >= today]
             if future_dates:
+                _LOGGER.debug("Next collection: Including '%s' (ID=%s), next date=%s",
+                             waste_type, waste_id, future_dates[0])
                 future_collections.append({
                     'type': waste_type,
                     'date': future_dates[0]
                 })
 
         if not future_collections:
+            _LOGGER.warning("Next collection: No future collections found! selected_ids=%s, available_ids=%s",
+                           selected_ids, list(desc.get('id') for desc in descriptions.values()))
             return None
 
         future_collections.sort(key=lambda x: x['date'])
