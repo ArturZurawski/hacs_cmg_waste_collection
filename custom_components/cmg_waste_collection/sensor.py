@@ -102,6 +102,10 @@ async def async_setup_entry(
         CONF_SELECTED_WASTE_TYPES,
         config_entry.data.get(CONF_SELECTED_WASTE_TYPES, [])
     )
+    _LOGGER.info("Selected waste types for aggregate sensors: %s", selected_types)
+    _LOGGER.info("Available waste type IDs from descriptions: %s",
+                 {name: desc.get('id') for name, desc in descriptions.items()})
+
     if selected_types:
         entities.append(
             TodayCollectionSensor(coordinator, config_entry, selected_types)
@@ -454,10 +458,12 @@ class NextCollectionSensor(CoordinatorEntity, SensorEntity):
     @property
     def _selected_type_ids(self) -> List[str]:
         """Get current selected type IDs from config entry."""
-        return self._config_entry.options.get(
+        selected = self._config_entry.options.get(
             CONF_SELECTED_WASTE_TYPES,
             self._config_entry.data.get(CONF_SELECTED_WASTE_TYPES, [])
         )
+        _LOGGER.debug("Next collection: _selected_type_ids property returns: %s", selected)
+        return selected
 
     @property
     def native_value(self) -> Optional[str]:
