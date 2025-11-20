@@ -102,6 +102,7 @@ async def async_setup_entry(
         CONF_SELECTED_WASTE_TYPES,
         config_entry.data.get(CONF_SELECTED_WASTE_TYPES, [])
     )
+
     if selected_types:
         entities.append(
             TodayCollectionSensor(coordinator, config_entry, selected_types)
@@ -112,6 +113,9 @@ async def async_setup_entry(
         entities.append(
             NextCollectionSensor(coordinator, config_entry, selected_types)
         )
+        _LOGGER.info("Created aggregate sensors with %d selected waste types", len(selected_types))
+    else:
+        _LOGGER.warning("NOT creating aggregate sensors - no waste types selected. Please configure waste types in integration options.")
 
     # Create info sensors
     change_date = config_entry.data.get(CONF_PERIOD_CHANGE_DATE)
@@ -122,6 +126,10 @@ async def async_setup_entry(
 
     entities.append(
         LastUpdateSensor(coordinator, config_entry)
+    )
+
+    entities.append(
+        ConfigurationStatusSensor(config_entry)
     )
 
     if entities:
@@ -287,12 +295,20 @@ class TodayCollectionSensor(CoordinatorEntity, SensorEntity):
         """Initialize the sensor."""
         super().__init__(coordinator)
         self._config_entry = config_entry
-        self._selected_type_ids = selected_type_ids
+        # Don't store selected_type_ids - read dynamically from config_entry
         self._attr_name = "Today collection"
         self._attr_unique_id = f"{config_entry.entry_id}_today_collection"
         self._attr_icon = "mdi:calendar-today"
         self._attr_has_entity_name = True
         self._attr_device_info = get_device_info(config_entry)
+
+    @property
+    def _selected_type_ids(self) -> List[str]:
+        """Get current selected type IDs from config entry."""
+        return self._config_entry.options.get(
+            CONF_SELECTED_WASTE_TYPES,
+            self._config_entry.data.get(CONF_SELECTED_WASTE_TYPES, [])
+        )
 
     @property
     def native_value(self) -> str:
@@ -357,12 +373,20 @@ class TomorrowCollectionSensor(CoordinatorEntity, SensorEntity):
         """Initialize the sensor."""
         super().__init__(coordinator)
         self._config_entry = config_entry
-        self._selected_type_ids = selected_type_ids
+        # Don't store selected_type_ids - read dynamically from config_entry
         self._attr_name = "Tomorrow collection"
         self._attr_unique_id = f"{config_entry.entry_id}_tomorrow_collection"
         self._attr_icon = "mdi:calendar"
         self._attr_has_entity_name = True
         self._attr_device_info = get_device_info(config_entry)
+
+    @property
+    def _selected_type_ids(self) -> List[str]:
+        """Get current selected type IDs from config entry."""
+        return self._config_entry.options.get(
+            CONF_SELECTED_WASTE_TYPES,
+            self._config_entry.data.get(CONF_SELECTED_WASTE_TYPES, [])
+        )
 
     @property
     def native_value(self) -> str:
@@ -428,12 +452,20 @@ class NextCollectionSensor(CoordinatorEntity, SensorEntity):
         """Initialize the sensor."""
         super().__init__(coordinator)
         self._config_entry = config_entry
-        self._selected_type_ids = selected_type_ids
+        # Don't store selected_type_ids - read dynamically from config_entry
         self._attr_name = "Next collection"
         self._attr_unique_id = f"{config_entry.entry_id}_next_collection"
         self._attr_icon = "mdi:calendar-multiselect"
         self._attr_has_entity_name = True
         self._attr_device_info = get_device_info(config_entry)
+
+    @property
+    def _selected_type_ids(self) -> List[str]:
+        """Get current selected type IDs from config entry."""
+        return self._config_entry.options.get(
+            CONF_SELECTED_WASTE_TYPES,
+            self._config_entry.data.get(CONF_SELECTED_WASTE_TYPES, [])
+        )
 
     @property
     def native_value(self) -> Optional[str]:
@@ -485,12 +517,14 @@ class NextCollectionSensor(CoordinatorEntity, SensorEntity):
 
         schedule, descriptions = self.coordinator.data
         today = dt_util.now().date()
+        selected_ids = self._selected_type_ids
 
         future_collections = []
 
         for waste_type, dates in schedule.items():
             desc = descriptions.get(waste_type, {})
-            if desc.get('id') not in self._selected_type_ids:
+            waste_id = desc.get('id')
+            if waste_id not in selected_ids:
                 continue
 
             future_dates = [d for d in dates if d.date() >= today]
@@ -501,6 +535,7 @@ class NextCollectionSensor(CoordinatorEntity, SensorEntity):
                 })
 
         if not future_collections:
+            _LOGGER.warning("No future collections found for selected waste types")
             return None
 
         future_collections.sort(key=lambda x: x['date'])
@@ -629,4 +664,43 @@ class LastUpdateSensor(CoordinatorEntity, SensorEntity):
             ATTR_STREET_ID: self._config_entry.data.get(CONF_STREET_ID),
             "street_name": self._config_entry.data.get(CONF_STREET_NAME),
             "number": self._config_entry.data.get(CONF_NUMBER),
+        }
+
+
+class ConfigurationStatusSensor(SensorEntity):
+    """Sensor showing configuration status of waste types selection."""
+
+    def __init__(self, config_entry: ConfigEntry) -> None:
+        """Initialize the sensor."""
+        self._config_entry = config_entry
+        self._attr_name = "Configuration status"
+        self._attr_unique_id = f"{config_entry.entry_id}_configuration_status"
+        self._attr_icon = "mdi:cog"
+        self._attr_has_entity_name = True
+        self._attr_device_info = get_device_info(config_entry)
+        self._attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    @property
+    def native_value(self) -> str:
+        """Return the state of the sensor."""
+        selected_types = self._config_entry.options.get(
+            CONF_SELECTED_WASTE_TYPES,
+            self._config_entry.data.get(CONF_SELECTED_WASTE_TYPES, [])
+        )
+
+        if not selected_types:
+            return "not_selected"
+        return "configured"
+
+    @property
+    def extra_state_attributes(self) -> Dict[str, Any]:
+        """Return additional attributes."""
+        selected_types = self._config_entry.options.get(
+            CONF_SELECTED_WASTE_TYPES,
+            self._config_entry.data.get(CONF_SELECTED_WASTE_TYPES, [])
+        )
+
+        return {
+            "selected_count": len(selected_types),
+            "selected_type_ids": selected_types,
         }
